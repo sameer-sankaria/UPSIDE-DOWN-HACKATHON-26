@@ -19,8 +19,16 @@ export function AssistantPanel() {
   const [response, setResponse] = useState<AssistantResponse | null>(null); const [planId, setPlanId] = useState("");
   const [selected, setSelected] = useState<number[]>([]); const [results, setResults] = useState<ActionResult[]>([]);
   const [busy, setBusy] = useState(false); const [status, setStatus] = useState("Pair the dashboard from the extension popup to use authorized context.");
+  const receipt=useRef<string|null>(null);
+  useEffect(()=>{void fetch("/api/account",{cache:"no-store"}).then(async r=>{if(r.ok){const data=await r.json();if(["SHOW_ME","DO_IT"].includes(data.preferences?.preferred_ai_mode))setMode(data.preferences.preferred_ai_mode);}}).catch(()=>undefined);},[]);
   const abort = useRef<AbortController | null>(null); const generation = useRef(0);
-  const message = <T,>(command: Parameters<typeof assistantMessage>[1]) => assistantMessage<T>(id.trim(), command);
+  const message = async <T,>(command: Parameters<typeof assistantMessage>[1]) => {
+    if(command.type!=="NAVI_ASSISTANT_CANCEL"){
+      const linked=await fetch("/api/account/link",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pairingToken:token.trim()})});
+      if(!linked.ok)throw new Error("Sign in to the same account in the website and extension before pairing.");
+    }
+    return assistantMessage<T>(id.trim(),command);
+  };
   useEffect(() => () => { generation.current++; abort.current?.abort(); }, []);
   function resetPlan() { setResponse(null); setPlanId(""); setSelected([]); setResults([]); }
   async function capture(readContent = false) {
@@ -43,6 +51,7 @@ export function AssistantPanel() {
       const input = assistantRequestSchema.parse({ version: 1, mode, instruction, tabs });
       const result = await fetch("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input), signal: controller.signal });
       if (!result.ok) throw new Error(`Assistant request failed (${result.status}).`);
+      receipt.current=result.headers.get("x-navi-usage-receipt");
       const data = assistantResponseSchema.parse(await result.json());
       if (run !== generation.current) return;
       setResponse(data); setStatus(data.provider === "gemini" ? "Plan ready. Nothing has executed." : data.notice);
@@ -59,6 +68,7 @@ export function AssistantPanel() {
     const pendingId = planId; setPlanId("");
     try {
       const data = await message<{ results: ActionResult[] }>({ type: "NAVI_ASSISTANT_EXECUTE", token: token.trim(), planId: pendingId, indices: selected, approved: true });
+      if(receipt.current&&data.results.some(r=>r.status==="verified")){void fetch("/api/usage/complete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({receipt:receipt.current})}).catch(()=>undefined);receipt.current=null;}
       if (run === generation.current) { setResults(data.results); setStatus(data.results.every(r => r.status === "verified") ? "Approved actions verified by Chrome." : "Execution finished with failures or stopped actions. Review the results."); }
     } catch (error) { if (run === generation.current) setStatus(error instanceof Error ? error.message : "Execution failed"); }
     finally { if (run === generation.current) setBusy(false); }

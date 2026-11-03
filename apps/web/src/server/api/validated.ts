@@ -1,3 +1,7 @@
+import {accountAuthRequired} from "../../lib/supabase/config";
+import {requestActor} from "../modules/account/actor";
+import {recordUsage} from "../modules/account/analytics";
+import {issueReceipt} from "../modules/account/receipts";
 import { ValidationError, type Schema } from "@navi-os/shared";
 import { apiJson } from "./response";
 import { isAllowedApiClient } from "../modules/permissions/api-access";
@@ -28,7 +32,20 @@ export function validatedPost<I, O>(input: Schema<I>, output: Schema<O>, service
       let parsed: I;
       try { parsed = input.parse(body); }
       catch (error) { if (error instanceof ValidationError) throw new HttpError(400, "INVALID_REQUEST"); throw error; }
-      return apiJson(output.parse(await service(parsed, request.signal)));
+      const actor=accountAuthRequired()?await requestActor(request):null;
+      if(accountAuthRequired()&&!actor)throw new HttpError(401,"UNAUTHENTICATED");
+      const result=output.parse(await service(parsed, request.signal));
+      const response=apiJson(result);
+      if(actor){
+        const path=new URL(request.url).pathname;
+        const record=result as Record<string,unknown>;
+        if(record.provider==="gemini" || (Array.isArray(record.recommendations)&&record.recommendations.some((r:Record<string,unknown>)=>r.title==="Gemini contextual suggestions"))) await recordUsage(actor.userId,"ai_request_completed");
+        try{
+          if(path==="/api/assistant"&&(parsed as Record<string,unknown>).mode==="DO_IT"&&((record.plan as {actions?:unknown[]})?.actions?.length??0)>0)response.headers.set("X-Navi-Usage-Receipt",issueReceipt(actor.userId,"browser_action_completed"));
+          if(path==="/api/contextflow")response.headers.set("X-Navi-Usage-Receipt",issueReceipt(actor.userId,"contextflow_suggestion_accepted"));
+        }catch{/* Optional analytics is unavailable without server credentials. */}
+      }
+      return response;
     } catch (error) {
       if (error instanceof HttpError) return apiJson({ error: { code: error.code } }, error.status);
       // No request bodies, text, titles, or raw URLs are logged or persisted.

@@ -1,3 +1,5 @@
+import type { AccountPreferences } from "./account";
+import {completeUsage} from "./account";
 import { analysisSchema, contextRequestSchema, ghostRequestSchema, recommendationsSchema,
   isSensitiveUrl, safeOrigin, sanitizeText, type ContextRequest, type Recommendation } from "@navi-os/shared";
 import { extractVisibleText } from "./context/extract";
@@ -82,6 +84,12 @@ export class ContextController {
     }
     return tabs;
   }
+  async applyAccountPreferences(preferences: AccountPreferences) {
+    const state=await this.load();state.accountPreferences=preferences;
+    if(!preferences.ghost_mode_enabled){state.ghost.mode="disabled";state.ghost.patterns=[];state.pending=state.pending.filter(p=>p.source!=="ghost");}
+    if(!preferences.contextflow_enabled)state.pending=state.pending.filter(p=>p.source!=="contextflow");
+    await this.store.save(state);
+  }
   async dispatch(command: InternalCommand): Promise<unknown> {
     let state = await this.load();
     try {
@@ -131,7 +139,7 @@ export class ContextController {
         case "SET_AI_CONSENT": state.remoteAIAllowed = command.enabled; break;
         case "SET_OPEN_PERMISSION": state.openTabsAllowed = command.enabled; break;
         case "GHOST_CONTROL": {
-          if (command.action === "enable") { state.ghost.mode = "enabled"; this.observe(state); }
+          if (command.action === "enable") { if(state.accountPreferences&&!state.accountPreferences.ghost_mode_enabled)throw new Error("Enable the Ghost Mode preference in your website account and sync first."); state.ghost.mode = "enabled"; this.observe(state); }
           else if (command.action === "pause") { state.ghost.mode = "paused"; state.pending = state.pending.filter(p => p.source !== "ghost"); }
           else {
             const mode = command.action === "disable" ? "disabled" : state.ghost.mode === "disabled" ? "disabled" : "paused";
@@ -141,6 +149,7 @@ export class ContextController {
           break;
         }
         case "ANALYZE": {
+          if(state.accountPreferences?.contextflow_enabled===false)throw new Error("ContextFlow is disabled in your account preferences.");
           if (!state.backendAllowed) throw new Error("Connect the local backend before sending context.");
           const tabs = await this.readContent(state, command.tabIds);
           const body = contextRequestSchema.parse({ version: 1, tabs });
@@ -177,6 +186,7 @@ export class ContextController {
             url.searchParams.set("q", pending.recommendation.queries[index]!);
             await chrome.tabs.create({ url: url.href, active: false });
           }
+          try{const data=await chrome.storage.session.get("naviUsageReceipt");if(pending.source==="contextflow"&&typeof data.naviUsageReceipt==="string")await completeUsage(data.naviUsageReceipt);}catch{}
           break;
         }
         case "CLEAR_SESSION": {

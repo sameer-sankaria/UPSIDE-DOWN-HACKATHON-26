@@ -1,17 +1,22 @@
 import assert from "node:assert/strict";
-const base = "http://localhost:3000";
+const base = process.env.NAVI_TEST_BASE_URL ?? "http://localhost:3000";
+const webOrigin="http://localhost:3000";
 const context = { version: 1, tabs: [
   { tabId: 1, title: "React repository", url: "https://github.com", text: "React hooks", capturedAt: Date.now() },
   { tabId: 2, title: "React documentation", url: "https://react.dev", text: "React components", capturedAt: Date.now() },
 ] };
-async function post(path, body, origin = base) {
+async function post(path, body, origin = webOrigin) {
   return fetch(base + path, { method: "POST", headers: { Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
 }
 const health = await fetch(base + "/api/health");
 assert.equal(health.status, 200); assert.deepEqual(await health.json(), { status: "ok", app: "NAVI OS" });
 assert.equal(health.headers.get("cache-control"), "no-store");
 const home = await fetch(base + "/"); assert.equal(home.status, 200); assert.ok((await home.text()).includes("Your browser. Your AI. Your control."));
-const dashboard = await fetch(base + "/dashboard"); assert.equal(dashboard.status, 200); assert.ok((await dashboard.text()).includes("Check extension connection"));
+const dashboard = await fetch(base + "/dashboard",{redirect:"manual"}); assert.equal(dashboard.status, 307); assert.ok(dashboard.headers.get("location").includes("/login"));
+const admin = await fetch(base + "/admin",{redirect:"manual"}); assert.equal(admin.status,307); assert.ok(admin.headers.get("location").includes("/login"));
+const login=await fetch(base+"/login");assert.equal(login.status,200);assert.ok((await login.text()).includes("Log in"));
+assert.equal((await fetch(base+"/api/account")).status,401);
+assert.equal((await fetch(base+"/api/extension/session")).status,401);
 for (const path of ["/onda/template.css", "/onda/navi.css", "/onda/motion.js", "/onda/LICENSE", "/onda/CREDITS.md", "/onda/browser.svg", "/icon.svg"]) {
   const asset = await fetch(base + path); assert.equal(asset.status, 200, path); assert.ok((await asset.text()).length > 0, path);
 }

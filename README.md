@@ -1,4 +1,4 @@
-# NAVI OS — Phase 4 Gemini assistant & approved browser actions
+# NAVI OS — Phase 5 accounts, preferences & private analytics
 
 TypeScript npm-workspaces monorepo: `apps/web`, `apps/extension`, `packages/shared`.
 
@@ -7,6 +7,24 @@ NAVI OS combines the original Onda-based landing page, a functional dashboard as
 The existing Phase 1 ping contract is unchanged. Dashboard actions use a separate opt-in pairing token issued by the extension popup, bound to one exact localhost dashboard tab for 30 minutes. Tokens stay in browser session memory and are never sent to Gemini. The dashboard requires explicit consent before sending captured browser data to Google; ContextFlow/Ghost remote suggestions have their own popup consent switch, off by default.
 
 See [Phase 4 setup, architecture, security, verification, and limitations](docs/PHASE4-VERIFICATION.md). The source template remains intact; template license and credits are served from `apps/web/public/onda/`.
+
+## Supabase accounts (Phase 5)
+
+The website now supports signup, email confirmation, login, password recovery, logout, protected dashboard routes, own-profile/preferences, and a private administrator dashboard. Extension account connection uses Chrome’s auth window with state and a one-time proof-bound code. Supabase access/refresh tokens never pass through arbitrary webpage messages. Browser permissions and per-action approval remain separate.
+
+Before using account features, review [Phase 5 setup and verification](docs/PHASE5-VERIFICATION.md), apply the additive [database migration](supabase/migrations/202611040001_accounts.sql), and configure:
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=https://sfczfhjpxunnipdxksew.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+SUPABASE_SERVICE_ROLE_KEY=your_server_only_service_role_key
+```
+
+Keep these in untracked `apps/web/.env.local`. The service-role key is server-only and supports extension sessions and optional analytics. Complete the documented email templates, redirect URLs, and trusted initial-admin assignment; no hosted migration or live Supabase test has been performed. `/admin` shows actual account/event records only to a database-authorized administrator. Optional analytics defaults off and never records browsing history, page text, passwords, or prompts.
+
+Start at `http://localhost:3000/signup`, verify your email, then log in. In the extension, connect the backend, sign in through the website, and sync preferences. Ghost monitoring remains explicitly opt-in even when its preference is enabled. Use `npm run test:db` for isolated PostgreSQL RLS checks with Docker.
+
+Account data and protected pages always reject unauthenticated access. When Supabase environment settings are absent, legacy localhost intelligence API behavior remains available for development/testing; when account configuration is present, those APIs require verified web/extension identity. This does not expose any Supabase account data in the unconfigured state.
 
 ## Gemini configuration
 
@@ -61,7 +79,7 @@ curl http://localhost:3000/api/health
 # {"status":"ok","app":"NAVI OS"}
 ```
 
-No credentials are required. The three analysis endpoints reject extension requests until the ID is configured. The website retains the Phase 1 console diagnostic:
+Gemini credentials and Supabase account configuration are required for their respective integrations. The three analysis endpoints reject extension requests until the ID is configured. The website retains the Phase 1 console diagnostic:
 
 ```js
 await window.naviOs.pingExtension("YOUR_32_CHARACTER_EXTENSION_ID")

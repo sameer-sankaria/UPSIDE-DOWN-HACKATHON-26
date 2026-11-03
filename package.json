@@ -16,7 +16,8 @@
     "start": "npm run start -w @navi-os/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "tsx --test tests/*.test.ts",
-    "test:http": "node scripts/smoke-http.mjs"
+    "test:http": "node scripts/smoke-http.mjs",
+    "test:db": "node scripts/test-database.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

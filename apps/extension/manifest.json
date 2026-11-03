@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "NAVI OS",
   "description": "Authorized browser context, session-only Ghost Mode, and approved search recommendations.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "permissions": [
     "activeTab",
     "scripting",
@@ -30,6 +30,7 @@
   "minimum_chrome_version": "120",
   "optional_permissions": [
     "tabGroups",
-    "tabs"
+    "tabs",
+    "identity"
   ]
 }

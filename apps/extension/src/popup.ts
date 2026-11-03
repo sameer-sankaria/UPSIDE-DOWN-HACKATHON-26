@@ -2,6 +2,7 @@ import type { InternalCommand } from "./messaging/internal";
 import type { Pattern } from "@navi-os/shared";
 import type { Pending } from "./session/state";
 interface View {
+  account?:{signedIn:boolean}|null;
   assistant?: { token: string; expiresAt: number; allowManage: boolean; paired: boolean } | null;
   tabs: { id: number; title: string; url: string; contentAllowed: boolean; expiresAt: number }[];
   remoteAIAllowed?: boolean; backendAllowed: boolean; openTabsAllowed: boolean;
@@ -11,6 +12,7 @@ const element = (id: string) => document.getElementById(id)!;
 const status = element("result");
 let busy = false;
 function render(view: View) {
+  element("account-state").textContent=view.account?.signedIn?"Signed in to NAVI OS":"Not signed in — account features require website authentication";
   (element("assistant-token") as HTMLInputElement).value = view.assistant?.token ?? "";
   element("assistant-state").textContent = view.assistant ? `Dashboard ${view.assistant.paired ? "paired" : "awaiting pairing"}. Expires ${new Date(view.assistant.expiresAt).toLocaleTimeString()}.` : "Dashboard access disabled.";
   const selected = new Set(Array.from(document.querySelectorAll<HTMLInputElement>('input[name="tab"]:checked')).map(i => Number(i.value)));
@@ -104,3 +106,9 @@ element("assistant-pair").onclick = () => {
 element("assistant-revoke").onclick = () => { void run({ type: "ASSISTANT_REVOKE" }); };
 
 (element("ai-consent") as HTMLInputElement).onchange = event => { void run({ type: "SET_AI_CONSENT", enabled: (event.target as HTMLInputElement).checked }); };
+
+for(const [id,type] of [["account-signin","ACCOUNT_SIGN_IN"],["account-sync","ACCOUNT_SYNC"],["account-signout","ACCOUNT_SIGN_OUT"]] as const) element(id).onclick=()=>{
+  element("account-state").textContent="Connecting account…";
+  const connect=async()=>{if(type==="ACCOUNT_SIGN_IN"&&!await chrome.permissions.request({permissions:["identity"]}))throw new Error("Identity permission declined");return chrome.runtime.sendMessage({type});};
+  void connect().then(response=>{element("account-state").textContent=response?.ok?(type==="ACCOUNT_SIGN_OUT"?"Signed out":"Account connected; preferences synced. Ghost monitoring remains explicit."):(response?.error??"Account unavailable");if(response?.ok)void run({type:"STATE"});}).catch(()=>{element("account-state").textContent="Account connection failed or cancelled.";});
+};

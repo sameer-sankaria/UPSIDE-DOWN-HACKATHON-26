@@ -21,6 +21,7 @@ export class AssistantEngine {
     if (grant.dashboardTabId === undefined) { grant.dashboardTabId = sender.tab!.id; await this.store.save(state); }
     return { state, grant };
   }
+  async checkAccess(value:unknown,sender:ExternalSender){await this.authorize(parseBridgeCommand(value),sender);}
   async interrupt(value: unknown, sender: ExternalSender) {
     const command = parseBridgeCommand(value);
     if (command.type !== "NAVI_ASSISTANT_CANCEL") throw new Error("Invalid cancellation");

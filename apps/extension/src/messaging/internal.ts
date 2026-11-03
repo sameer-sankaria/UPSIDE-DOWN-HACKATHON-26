@@ -1,5 +1,6 @@
 import { isRecord } from "@navi-os/shared";
 export type InternalCommand =
+  | { type: "ACCOUNT_SIGN_IN"|"ACCOUNT_SYNC"|"ACCOUNT_SIGN_OUT" }
   | { type: "ASSISTANT_PAIR"; allowManage: boolean }
   | { type: "ASSISTANT_REVOKE" }
   | { type: "STATE" | "AUTHORIZE_METADATA" | "AUTHORIZE_CONTENT" | "CONNECT_BACKEND" | "GHOST_SUGGEST" | "CLEAR_SESSION" }
@@ -16,6 +17,7 @@ export function parseCommand(value: unknown): InternalCommand {
   const tab = (v: unknown) => Number.isInteger(v) && (v as number) >= 0;
   const list = (v: unknown, max: number) => Array.isArray(v) && v.length > 0 && v.length <= max && new Set(v).size === v.length && v.every(tab);
   switch (value.type) {
+    case "ACCOUNT_SIGN_IN": case "ACCOUNT_SYNC": case "ACCOUNT_SIGN_OUT": if(keys === "type")return value as InternalCommand; break;
     case "ASSISTANT_PAIR": if (keys === "allowManage,type" && typeof value.allowManage === "boolean") return value as InternalCommand; break;
     case "ASSISTANT_REVOKE": if (keys === "type") return value as InternalCommand; break;
     case "STATE": case "AUTHORIZE_METADATA": case "AUTHORIZE_CONTENT": case "CONNECT_BACKEND": case "GHOST_SUGGEST": case "CLEAR_SESSION":

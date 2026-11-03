@@ -1,12 +1,16 @@
+import {readAccount} from "../account";
 import { WEB_ORIGIN, type Schema } from "@navi-os/shared";
 export async function postBackend<I, O>(path: string, body: I, schema: Schema<O>, aiConsent = false, signal?: AbortSignal): Promise<O> {
   if (!await chrome.permissions.contains({ origins: ["http://localhost/*"] })) throw new Error("Connect the local backend first.");
   if (!["/api/browser-context", "/api/contextflow", "/api/ghost/suggestions"].includes(path)) throw new Error("Unknown endpoint");
+  const account=await readAccount();
   const response = await fetch(WEB_ORIGIN + path, {
-    method: "POST", headers: { "Content-Type": "application/json", "X-Navi-Extension-Id": chrome.runtime.id, "X-Navi-AI-Consent": aiConsent ? "yes" : "no" },
+    method: "POST", headers: { "Content-Type": "application/json", "X-Navi-Extension-Id": chrome.runtime.id, "X-Navi-AI-Consent": aiConsent ? "yes" : "no", ...(account?{Authorization:`Bearer ${account.token}`}:{}) },
     body: JSON.stringify(body), credentials: "omit", redirect: "error", cache: "no-store", signal: AbortSignal.any([AbortSignal.timeout(aiConsent ? 20000 : 8000), ...(signal ? [signal] : [])]),
   });
   if (!response.ok) throw new Error(`Backend returned ${response.status}. Check NAVI_EXTENSION_ID and restart the web app.`);
+  const receipt=response.headers.get("x-navi-usage-receipt");
+  if(path==="/api/contextflow"&&receipt)await chrome.storage.session.set({naviUsageReceipt:receipt});
   // Bound responses even if a local server is misconfigured.
   const reader = response.body?.getReader();
   if (!reader) throw new Error("Missing backend response");
