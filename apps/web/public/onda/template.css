@@ -193,7 +193,7 @@ textarea.m-field { min-height: 112px; resize: vertical; }
 
 @layer sections {
 #hero { --ap: min(74vw, 44svh); position: relative; z-index: 3; display: grid; grid-template-rows: 1fr auto; min-height: max(100svh, 560px); padding: 0 var(--space-1); background: var(--color-1); color: var(--color-2); overflow: clip visible; }
-#hero .hero__intro { display: grid; justify-items: start; align-content: start; gap: 18px; max-width: 32rem; padding-top: clamp(92px, 14svh, 150px); }
+#hero .hero__intro { --hero-intro-top: clamp(92px, 14svh, 150px); --hero-intro-clearance: max(16px, calc(var(--hero-intro-top) - 76px)); display: grid; justify-items: start; align-content: start; gap: 18px; max-width: 32rem; padding-top: var(--hero-intro-top); }
 #hero .hero__lead { color: var(--color-2); }
 #hero .hero__title { position: static; align-self: end; padding-bottom: clamp(18px, 5svh, 52px); white-space: nowrap; }
 #hero .hero__word, #hero .hero__mask, #hero .hero__glyphs { display: inline-block; }
@@ -471,13 +471,13 @@ textarea.m-field { min-height: 112px; resize: vertical; }
 [data-8b-live] #hero .hero__aperture, [data-8b-live] #hero .hero__word, [data-8b-live] #hero .hero__tint { animation-timeline: --hero-t1; animation-fill-mode: both; }
 [data-8b-live] #hero .hero__aperture { animation-name: hero-aperture-move, hero-aperture-shrink; animation-range: cover calc(100% - 100vh) cover calc(100% - 30vh); animation-timing-function: var(--ease-power1-inout), var(--ease-power3-in); transform: none; }
 [data-8b-live] #hero .hero__orbit { animation-name: hero-orbit, hero-orbit-fade; animation-duration: 13s, auto; animation-iteration-count: infinite, 1; animation-timing-function: linear, linear; animation-timeline: auto, --hero-t1; animation-range: normal, cover calc(100% - 100vh) cover calc(100% - 79vh); animation-fill-mode: none, both; }
-[data-8b-live] #hero .hero__intro { animation-name: hero-lift, hero-intro-exit; animation-duration: 0.9s, auto; animation-delay: 0.12s, 0s; animation-timing-function: cubic-bezier(.16, .84, .24, 1), cubic-bezier(0.3333, 0, 0.6667, 0.3333); animation-timeline: auto, --hero-t1; animation-range: normal, cover calc(100% - 100vh) cover calc(100% - 30vh); animation-fill-mode: backwards, both; }
+[data-8b-live] #hero .hero__intro { animation-name: hero-lift, hero-intro-exit; animation-duration: 0.9s, auto; animation-delay: 0.12s, 0s; animation-timing-function: cubic-bezier(.16, .84, .24, 1), cubic-bezier(0.3333, 0, 0.6667, 0.3333); animation-timeline: auto, --hero-t1; animation-range: normal, cover calc(100% - 100vh) cover calc(100% - 100vh + var(--hero-intro-clearance)); animation-fill-mode: backwards, both; }
 [data-8b-live] #hero .hero__tint { animation-name: hero-tint-flood; animation-range: cover calc(100% - 72vh) cover calc(100% - 30vh); animation-timing-function: cubic-bezier(0.3333, 0, 0.6667, 0); }
 @keyframes hero-aperture-move { 0% { translate: 0px 0px; } 100% { translate: var(--hero-dx, 0px) var(--hero-dy, 0px); } }
 @keyframes hero-aperture-shrink { 0% { scale: 1; } 100% { scale: var(--hero-s, 1); } }
 @keyframes hero-orbit-fade { 0% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes hero-word-aside { 0% { translate: 0px 0px; } 100% { translate: -14% 0px; } }
-@keyframes hero-intro-exit { 0% { translate: 0px 0px; } 100% { translate: 0px -70px; } }
+@keyframes hero-intro-exit { 0% { opacity: 1; } 100% { opacity: 0; } }
 @keyframes hero-tint-flood { 0% { opacity: 0; } 100% { opacity: 1; } }
 @media (min-width: 900px) and (orientation: landscape) {
   [data-8b-live] #hero .hero__word { animation-name: hero-word-aside; animation-range: cover calc(100% - 100vh) cover calc(100% - 30vh); animation-timing-function: cubic-bezier(0.3333, 0, 0.6667, 0.3333); transform: none; }
@@ -500,7 +500,7 @@ textarea.m-field { min-height: 112px; resize: vertical; }
 
 @layer scenes {
 @media (prefers-reduced-motion: no-preference) {
-  [data-8b-live] #work { --work-stage-height: max(100svh, 560px); height: calc(var(--work-stage-height) + var(--run, 0px)); }
+  [data-8b-live] #work { --work-stage-height: max(100svh, 560px); --work-settle: clamp(24px, 4svh, 40px); height: calc(var(--work-stage-height) + var(--work-run, 0px) + var(--work-settle)); }
   [data-8b-live] #work .work__stage { position: sticky; top: 0; height: var(--work-stage-height); min-height: 0; padding-top: clamp(84px, 13svh, 120px); padding-bottom: clamp(24px, 5svh, 48px); grid-template-rows: auto minmax(0, 1fr); overflow: clip; }
   [data-8b-live] #work .work__window { display: flex; align-items: center; min-height: 0; transform-origin: 0 50%; }
   [data-8b-live] #work .work__track { display: flex; gap: clamp(14px, 1.6vw, 24px); width: max-content; height: min(100%, 64svh); }
@@ -510,18 +510,13 @@ textarea.m-field { min-height: 112px; resize: vertical; }
 }
 @layer scenes {
 [data-8b-live] #work { view-timeline: --work-t1 block; view-timeline-inset: 0; }
-[data-8b-live] #work .work__plate, [data-8b-live] #work .work__track, [data-8b-live] #work .case__img, [data-8b-live] #work .work__window, [data-8b-live] #work .case { animation-timeline: --work-t1; animation-fill-mode: both; }
+[data-8b-live] #work .work__plate, [data-8b-live] #work .work__track, [data-8b-live] #work .case__img { animation-timeline: --work-t1; animation-fill-mode: both; }
 [data-8b-live] #work .work__plate { animation-name: work-plate-grow; animation-range: cover 0% cover 85svh; animation-timing-function: cubic-bezier(0.3333, 0.6667, 0.6667, 1); }
-[data-8b-live] #work .work__track { animation-name: work-track-slide; animation-range: cover 100svh cover calc(100% - var(--work-stage-height)); animation-timing-function: linear; transform: none; }
-[data-8b-live] #work .case__img { animation-name: work-img-drift; animation-range: cover 100svh cover calc(100% - var(--work-stage-height)); animation-timing-function: linear; transform: none; }
-[data-8b-live] #work .work__window, [data-8b-live] #work .case { animation-range: cover calc(100% - var(--work-stage-height)) cover calc(100% - 30svh); animation-timing-function: cubic-bezier(0.3333, 0, 0.6667, 0.3333); transform: none; }
-[data-8b-live] #work .work__window { animation-name: work-window-sweep; }
-[data-8b-live] #work .case { animation-name: work-case-bend; }
+[data-8b-live] #work .work__track { animation-name: work-track-slide; animation-range: cover 100svh cover calc(100% - var(--work-stage-height) - var(--work-settle)); animation-timing-function: linear; transform: none; }
+[data-8b-live] #work .case__img { animation-name: work-img-drift; animation-range: cover 100svh cover calc(100% - var(--work-stage-height) - var(--work-settle)); animation-timing-function: linear; transform: none; }
 @keyframes work-plate-grow { 0% { clip-path: inset(0% 3.2% round 44px); } 100% { clip-path: inset(0%); } }
 @keyframes work-track-slide { 0% { translate: 0px 0px; } 100% { translate: calc(-1 * var(--work-run, 0px)) 0px; } }
 @keyframes work-img-drift { 0% { translate: -5% 0px; } 100% { translate: 5% 0px; } }
-@keyframes work-window-sweep { 0% { translate: 0px 0px; } 100% { translate: -20vw 0px; } }
-@keyframes work-case-bend { 0% { translate: 0px 0px; rotate: 0deg; } 100% { translate: var(--work-x, 0px) var(--work-y, 0px); rotate: var(--work-r, 0deg); } }
 }
 
 

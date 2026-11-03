@@ -1,6 +1,12 @@
 // motion-gate
 
-if (matchMedia('(prefers-reduced-motion: no-preference)').matches && CSS.supports('animation-timeline: view()')) document.documentElement.setAttribute('data-8b-live', '');
+const supportsScrollTimelines = CSS.supports('height: 100svh')
+  && CSS.supports('view-timeline: --navi-probe block')
+  && CSS.supports('animation-timeline: --navi-probe')
+  && CSS.supports('animation-range: cover 0% cover 100%');
+if (matchMedia('(prefers-reduced-motion: no-preference)').matches
+  && matchMedia('(min-height: 560px)').matches
+  && supportsScrollTimelines) document.documentElement.setAttribute('data-8b-live', '');
 
 // section-script:navigation
 
@@ -255,23 +261,10 @@ motionKit.scene('hero', () => {
 motionKit.scene('work', () => {
   const work = document.getElementById('work');
   const stage = work.querySelector('.work__stage');
-  const frame = work.querySelector('.work__window');
   const track = work.querySelector('.work__track');
-  const left = element => { let x = 0; for (let node = element; node; node = node.offsetParent) x += node.offsetLeft; return x; };
   motionKit.measure(() => {
     const run = Math.max(0, track.offsetWidth - (work.clientWidth - 2 * parseFloat(getComputedStyle(stage).paddingLeft)));
-    motionKit.set(work, { '--run': `${Math.round(run)}px`, '--work-run': `${run.toFixed(2)}px` });
-    const radius = innerWidth < 700 ? innerWidth * 2.1 : innerWidth * 0.95;
-    const origin = left(frame);
-    track.querySelectorAll('.case').forEach(card => {
-      const offset = origin + card.offsetLeft + card.offsetWidth / 2 - run - innerWidth / 2;
-      const angle = offset / radius;
-      motionKit.set(card, {
-        '--work-x': `${(radius * Math.sin(angle) - offset).toFixed(2)}px`,
-        '--work-y': `${(radius * (1 - Math.cos(angle))).toFixed(2)}px`,
-        '--work-r': `${(angle * 180 / Math.PI).toFixed(3)}deg`
-      });
-    });
+    motionKit.set(work, { '--work-run': `${run.toFixed(2)}px` });
   });
 });
 

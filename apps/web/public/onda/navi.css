@@ -19,10 +19,11 @@
 /* Feature content owns its space; the tilted artwork stays in its own row. */
 #work .case {
   display: grid;
-  grid-template-rows: auto minmax(100px, 1fr) auto;
-  gap: 16px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: clamp(10px, 1.8vh, 16px);
   padding: clamp(18px, 2.4vw, 36px);
   min-width: 0;
+  min-height: 0;
   width: 100%;
   max-width: calc(100vw - 2 * var(--space-1));
   isolation: isolate;
@@ -73,6 +74,11 @@
 @media (max-width: 699px) {
   #hero { --ap: min(64vw, 28svh); }
   #hero .hero__stage { top: calc(62% - var(--ap) / 2 + 18px); }
+  [data-8b-live] #work .case {
+    width: min(calc(100vw - 2 * var(--space-1)), 420px);
+    aspect-ratio: auto;
+    padding: clamp(12px, 3vw, 20px);
+  }
 }
 @media (min-width: 700px) and (max-width: 899px) {
   #hero { --ap: min(24vw, 210px); }

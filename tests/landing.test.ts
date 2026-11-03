@@ -33,12 +33,28 @@ test("template fixed-count motion groups retain their required items and scene a
   dom.window.close();
 });
 
-for (const [name, reduced, support] of [["reduced motion", true, true], ["unsupported scroll timelines", false, false]] as const) {
+for (const [name, reduced, support, viewport] of [
+  ["reduced motion", true, "complete", true],
+  ["unsupported scroll timelines", false, "none", true],
+  ["partial scroll timeline support", false, "view-only", true],
+  ["short viewport", false, "complete", false]
+] as const) {
   test(`motion script is safe with ${name}; mobile menu opens, closes and supports Escape`, () => {
     const dom = new JSDOM(markup, { runScripts: "outside-only", url: "http://localhost:3000" });
     const w = dom.window;
-    Object.defineProperty(w, "matchMedia", { value: () => ({ matches: !reduced }) });
-    Object.defineProperty(w, "CSS", { value: { supports: () => support } });
+    Object.defineProperty(w, "matchMedia", {
+      value: (query: string) => ({
+        matches: query === "(prefers-reduced-motion: no-preference)" ? !reduced
+          : query === "(min-height: 560px)" ? viewport
+          : false
+      })
+    });
+    Object.defineProperty(w, "CSS", {
+      value: {
+        supports: (condition: string) => support === "complete"
+          || (support === "view-only" && condition === "animation-timeline: view()")
+      }
+    });
     w.eval(motion);
     assert.equal(w.document.documentElement.hasAttribute("data-8b-live"), false);
     const toggle = w.document.querySelector<HTMLButtonElement>(".nav__menu")!;
