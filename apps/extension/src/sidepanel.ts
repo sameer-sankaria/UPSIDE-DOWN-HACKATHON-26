@@ -1,0 +1,44 @@
+import {assistantResponseSchema,type AssistantResponse,type ActionResult,type PlannedAction,stripBuddyPrefix} from "@navi-os/shared";
+import {VoiceInput,type Recognition} from "./voice";
+const get=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
+const input=get<HTMLTextAreaElement>("instruction"),status=get("status"),messages=get("messages"),approval=get("approval");
+const send=get<HTMLButtonElement>("send"),mic=get<HTMLButtonElement>("microphone"),mode=get<HTMLSelectElement>("mode");
+function refreshPermissions(){void request<{opening:boolean;switching:boolean}>({type:"COMPANION_STATE"}).then(state=>{get<HTMLInputElement>("opening").checked=state.opening===true;get<HTMLInputElement>("switching").checked=state.switching===true;}).catch(()=>undefined);}
+refreshPermissions();
+let generation=0,busy=false,voiceBusy=false,originalDraft="";
+async function request<T>(command:unknown):Promise<T>{const response=await chrome.runtime.sendMessage(command);if(!response?.ok)throw new Error(response?.error??"Extension request failed");return response.data as T;}
+function errorText(error:unknown){return error instanceof Error?error.message:"Request failed. Please retry.";}
+function message(who:"user"|"assistant"|"result",text:string){const article=document.createElement("article");article.className="message "+who;const label=document.createElement("span");label.textContent=who==="user"?"YOU":who==="result"?"CHROME RESULT":"NAVI";const p=document.createElement("p");p.textContent=text;article.append(label,p);messages.append(article);while(messages.children.length>24)messages.firstElementChild?.remove();article.scrollIntoView({block:"nearest"});}
+function setBusy(value:boolean){busy=value;send.disabled=value||voiceBusy;input.disabled=value||voiceBusy;mode.disabled=value;mic.disabled=value||!voice.supported;get<HTMLButtonElement>("controls").disabled=value;}
+function actionText(action:PlannedAction){switch(action.type){case "open_url":return "Open new tab: "+action.url;case "search":return "Search Google: "+action.query;case "switch_tab":return "Switch to authorized tab #"+action.tabId;default:return "Unsupported companion action";}}
+function showPlan(data:{response:AssistantResponse;planId:string|null}){
+ const response=assistantResponseSchema.parse(data.response);message("assistant",response.plan.summary+(response.plan.actions.length&&response.plan.steps.length?"\n\n"+response.plan.steps.join("\n"):"")+"\n\n"+response.notice);approval.replaceChildren();approval.hidden=true;
+ if(!response.plan.actions.length)return;
+ const title=document.createElement("h2");title.textContent="Proposed browser action";const p=document.createElement("p");p.textContent=response.plan.actions.map(actionText).join("\n");approval.append(title,p);approval.hidden=false;
+ if(!data.planId){const note=document.createElement("p");note.textContent="SHOW ME: explanation only. Select DO IT and send again to request approval.";approval.append(note);return;}
+ const approve=document.createElement("button");approve.type="button";approve.textContent="Approve this action";const reject=document.createElement("button");reject.type="button";reject.textContent="Reject";
+ approve.onclick=()=>{const run=++generation;approve.disabled=true;reject.disabled=true;setBusy(true);status.textContent="Executing the approved action…";void request<{results:ActionResult[]}>({type:"COMPANION_APPROVE",planId:data.planId,approved:true}).then(result=>{if(run!==generation)return;approval.hidden=true;for(const entry of result.results)message("result",entry.status.toUpperCase()+": "+entry.detail);status.textContent=result.results.every(r=>r.status==="verified")?"Chrome confirmed the requested state.":"Execution did not fully verify. Inspect Chrome before retrying.";},error=>{if(run===generation){approval.hidden=true;status.textContent=errorText(error);}}).finally(()=>{if(run===generation)setBusy(false);});};
+ reject.onclick=()=>void cancel();approval.append(approve,reject);
+}
+const speech=window as unknown as {SpeechRecognition?:new()=>Recognition;webkitSpeechRecognition?:new()=>Recognition};const Constructor=speech.SpeechRecognition??speech.webkitSpeechRecognition;
+const voice=new VoiceInput(Constructor?()=>new Constructor():undefined,()=>navigator.mediaDevices.getUserMedia({audio:true}),state=>{
+ voiceBusy=state.state==="requesting"||state.state==="listening";mic.setAttribute("aria-pressed",String(voiceBusy));get<HTMLButtonElement>("voice-stop").disabled=!voiceBusy;get<HTMLButtonElement>("voice-cancel").disabled=!(voiceBusy||state.text);
+ send.disabled=busy||voiceBusy;input.disabled=busy||voiceBusy;
+ if(state.text)input.value=state.text;
+ get("voice-status").textContent=state.error??(state.state==="requesting"?"Waiting for microphone permission…":state.state==="listening"?"Listening for one instruction. Stop when ready; nothing is sent automatically.":state.state==="transcript"?"Transcript ready. Edit it, then select Send instruction to confirm.":"Microphone off. Type or choose Voice.");
+});
+mic.disabled=!voice.supported;if(!voice.supported)get("voice-status").textContent="Speech recognition is unavailable in this browser context. Typed input works.";
+mic.onclick=()=>{originalDraft=input.value;void voice.start();};get("voice-stop").onclick=()=>voice.stop();get("voice-cancel").onclick=()=>{voice.cancel();input.value=originalDraft;};
+get<HTMLFormElement>("chat").onsubmit=event=>{event.preventDefault();if(busy||voiceBusy)return;const instruction=stripBuddyPrefix(input.value);if(!instruction)return;const run=++generation;voice.cancel();setBusy(true);approval.hidden=true;message("user",instruction);status.textContent="NAVI is preparing a response. No action is executing…";
+ void request<{response:AssistantResponse;planId:string|null}>({type:"COMPANION_CHAT",instruction,mode:mode.value,includeMetadata:get<HTMLInputElement>("metadata").checked,consent:get<HTMLInputElement>("consent").checked}).then(data=>{if(run!==generation)return;showPlan(data);input.value="";status.textContent=data.planId?"Review and approve the exact action, or reject it.":"Response ready. No browser action has executed.";},error=>{if(run===generation){message("assistant",errorText(error));status.textContent=errorText(error);}}).finally(()=>{if(run===generation)setBusy(false);});};
+async function cancel(){generation++;voice.cancel();approval.hidden=true;setBusy(false);status.textContent="Stopping…";try{await request({type:"COMPANION_CANCEL"});status.textContent="Pending action rejected and request stopped. A Chrome call already issued cannot be undone.";}catch(error){status.textContent=errorText(error);}}
+get("stop").onclick=()=>void cancel();get("close").onclick=()=>{void cancel().finally(async()=>{
+  const panel=chrome.sidePanel as typeof chrome.sidePanel & {close?:(options:{windowId:number})=>Promise<void>};
+  try{const current=await chrome.windows.getCurrent();if(panel.close&&current.id!==undefined){await panel.close({windowId:current.id});return;}}catch{}
+  status.textContent="Use Chrome’s side-panel close button if this Chrome version keeps the panel open.";window.close();
+ });};
+get("opening").onchange=event=>{void request({type:"COMPANION_OPEN_PERMISSION",enabled:(event.target as HTMLInputElement).checked}).then(()=>status.textContent="Opening permission updated.",error=>{get<HTMLInputElement>("opening").checked=false;status.textContent=errorText(error);});};
+get("switching").onchange=event=>{void request({type:"COMPANION_SWITCH_PERMISSION",enabled:(event.target as HTMLInputElement).checked}).then(()=>status.textContent="Switch permission updated. Every switch still needs approval.",error=>{get<HTMLInputElement>("switching").checked=false;status.textContent=errorText(error);});};
+get("verification").onclick=()=>{void chrome.permissions.request({permissions:["tabs"]}).then(granted=>status.textContent=granted?"Destination verification granted. Opening permission and action approval are still required.":"Verification permission declined. New-tab actions remain blocked.",()=>status.textContent="Permission request failed.");};
+get("controls").onclick=()=>{voice.cancel();const dialog=document.createElement("dialog");dialog.className="controls-dialog";const back=document.createElement("button");back.textContent="Back to companion";back.onclick=()=>{dialog.close();dialog.remove();};const frame=document.createElement("iframe");frame.src=chrome.runtime.getURL("popup.html");frame.title="Existing NAVI OS permissions and account controls";dialog.append(back,frame);document.body.append(dialog);dialog.showModal();dialog.addEventListener("close",()=>{dialog.remove();refreshPermissions();});};
+window.addEventListener("pagehide",()=>{voice.cancel();void chrome.runtime.sendMessage({type:"COMPANION_CANCEL"}).catch(()=>undefined);});document.addEventListener("visibilitychange",()=>{if(document.hidden)voice.cancel();});

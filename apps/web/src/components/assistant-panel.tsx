@@ -5,6 +5,7 @@ import { assistantRequestSchema, assistantResponseSchema, type AssistantMode, ty
 
 function describe(action: PlannedAction) {
   switch (action.type) {
+    case "open_url": return `Open approved HTTPS URL: ${action.url}`;
     case "search": return `Search Google: ${action.query}`;
     case "open_tab": return `Open new tab: ${action.origin}`;
     case "switch_tab": return `Switch to authorized tab #${action.tabId}`;
