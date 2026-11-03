@@ -31,9 +31,11 @@ const assistant = await post("/api/assistant", { version: 1, mode: "SHOW_ME", in
 assert.equal(assistant.status, 200);
 const assistantBody = await assistant.json(); assert.equal(assistantBody.version, 1); assert.ok(["gemini", "fallback"].includes(assistantBody.provider));
 assert.ok(Array.isArray(assistantBody.plan.actions));
-for (const path of ["/api/browser-context", "/api/contextflow", "/api/ghost/suggestions", "/api/assistant"]) {
+const companion = await post("/api/companion", {version:1,mode:"SHOW_ME",instruction:"open YouTube",tabs:[]});
+assert.equal(companion.status,200);const companionBody=await companion.json();assert.equal(companionBody.version,1);assert.ok(["gemini","fallback"].includes(companionBody.provider));assert.ok(companionBody.plan.actions.length<=1);
+for (const path of ["/api/browser-context", "/api/contextflow", "/api/ghost/suggestions", "/api/assistant", "/api/companion"]) {
   const blocked = await post(path, context, "https://evil.example"); assert.equal(blocked.status, 403);
   assert.equal(blocked.headers.has("access-control-allow-origin"), false);
   assert.equal((await post(path, { version: 99 })).status, 400);
 }
-console.log("PASS: live homepage, dashboard, landing assets, health, assistant and three intelligence endpoints, relevant queries, approval flags, rejected origins and invalid schemas.");
+console.log("PASS: live homepage, dashboard, landing assets, health, assistant, companion and three intelligence endpoints, relevant queries, approval flags, rejected origins and invalid schemas.");

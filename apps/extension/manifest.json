@@ -2,19 +2,19 @@
   "manifest_version": 3,
   "name": "NAVI OS",
   "description": "Authorized browser context, session-only Ghost Mode, and approved search recommendations.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "permissions": [
     "activeTab",
     "scripting",
-    "storage"
+    "storage",
+    "sidePanel"
   ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
   "action": {
-    "default_title": "NAVI OS",
-    "default_popup": "popup.html"
+    "default_title": "NAVI OS"
   },
   "externally_connectable": {
     "matches": [
@@ -32,5 +32,17 @@
     "tabGroups",
     "tabs",
     "identity"
-  ]
+  ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "commands": {
+    "open-companion": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Open NAVI OS browser companion"
+    }
+  }
 }

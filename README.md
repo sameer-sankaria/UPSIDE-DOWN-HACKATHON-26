@@ -1,4 +1,4 @@
-# NAVI OS — Phase 5 accounts, preferences & private analytics
+# NAVI OS — Phase 6A browser companion
 
 TypeScript npm-workspaces monorepo: `apps/web`, `apps/extension`, `packages/shared`.
 
@@ -7,6 +7,14 @@ NAVI OS combines the original Onda-based landing page, a functional dashboard as
 The existing Phase 1 ping contract is unchanged. Dashboard actions use a separate opt-in pairing token issued by the extension popup, bound to one exact localhost dashboard tab for 30 minutes. Tokens stay in browser session memory and are never sent to Gemini. The dashboard requires explicit consent before sending captured browser data to Google; ContextFlow/Ghost remote suggestions have their own popup consent switch, off by default.
 
 See [Phase 4 setup, architecture, security, verification, and limitations](docs/PHASE4-VERIFICATION.md). The source template remains intact; template license and credits are served from `apps/web/public/onda/`.
+
+## Chrome browser companion (Phase 6A)
+
+The extension toolbar now opens NAVI's Side Panel. Chat with the existing Gemini backend, review SHOW ME plans, or use DO IT for one explicitly approved navigation/search/tab-switch action. Push-to-talk speech input produces an editable transcript; typed input is always available. “Hey Buddy” is an optional prefix, not an always-listening wake word.
+
+Build/reload `apps/extension/dist`, then click the toolbar action or use **Ctrl+Shift+Y** (**Command+Shift+Y** on macOS). Review or customize conflicts at `chrome://extensions/shortcuts`. **Controls** opens the existing account, permission, ContextFlow and Ghost interface inside the panel. Sign in through the website and connect the backend there. The existing website dashboard remains available.
+
+See [Phase 6A loading instructions, security, verification and manual checklist](docs/PHASE6A-VERIFICATION.md). No new database or provider was added. Full page summarization, email composition/sending, autonomous workflows, and background wake-word detection are outside this phase.
 
 ## Supabase accounts (Phase 5)
 

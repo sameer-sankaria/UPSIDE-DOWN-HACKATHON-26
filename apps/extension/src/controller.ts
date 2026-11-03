@@ -93,8 +93,8 @@ export class ContextController {
   async dispatch(command: InternalCommand): Promise<unknown> {
     let state = await this.load();
     try {
-      if (state.assistant && ["REVOKE_TAB", "REVOKE_CONTENT", "AUTHORIZE_METADATA", "AUTHORIZE_CONTENT", "SET_OPEN_PERMISSION", "SET_AI_CONSENT"].includes(command.type)) {
-        delete state.assistant.pending; delete state.assistant.capture;
+      if (["REVOKE_TAB", "REVOKE_CONTENT", "AUTHORIZE_METADATA", "AUTHORIZE_CONTENT", "SET_OPEN_PERMISSION", "SET_AI_CONSENT"].includes(command.type)) {
+        for(const grant of [state.assistant,state.companion])if(grant){delete grant.pending;delete grant.capture;}
       }
       switch (command.type) {
         case "ASSISTANT_PAIR": {
@@ -201,7 +201,7 @@ export class ContextController {
   async updated(id: number, change: { url?: string; title?: string; status?: string }, tab: chrome.tabs.Tab) {
     const state = await this.load(); const grant = state.tabs[id];
     if (!grant) { await this.store.save(state); return; }
-    if (change.url !== undefined || change.status === "loading") { delete grant.content; state.pending = []; if (state.assistant) { delete state.assistant.pending; delete state.assistant.capture; } }
+    if (change.url !== undefined || change.status === "loading") { delete grant.content; state.pending = []; for(const assistant of [state.assistant,state.companion])if(assistant){delete assistant.pending;delete assistant.capture;} }
     if (change.url && (isSensitiveUrl(change.url) || safeOrigin(change.url) !== grant.origin)) {
       delete state.tabs[id]; state.pending = [];
     } else if (state.ghost.mode === "enabled") {
@@ -222,7 +222,7 @@ export class ContextController {
   }
   async removed(id: number) {
     const state = await this.load();
-    if (state.tabs[id]) { delete state.tabs[id]; state.pending = []; if (state.assistant) { delete state.assistant.pending; delete state.assistant.capture; } }
+    if (state.tabs[id]) { delete state.tabs[id]; state.pending = []; for(const assistant of [state.assistant,state.companion])if(assistant){delete assistant.pending;delete assistant.capture;} }
     await this.store.save(state);
   }
 }

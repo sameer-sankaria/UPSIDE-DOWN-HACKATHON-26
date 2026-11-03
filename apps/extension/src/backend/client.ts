@@ -2,7 +2,7 @@ import {readAccount} from "../account";
 import { WEB_ORIGIN, type Schema } from "@navi-os/shared";
 export async function postBackend<I, O>(path: string, body: I, schema: Schema<O>, aiConsent = false, signal?: AbortSignal): Promise<O> {
   if (!await chrome.permissions.contains({ origins: ["http://localhost/*"] })) throw new Error("Connect the local backend first.");
-  if (!["/api/browser-context", "/api/contextflow", "/api/ghost/suggestions"].includes(path)) throw new Error("Unknown endpoint");
+  if (!["/api/companion", "/api/browser-context", "/api/contextflow", "/api/ghost/suggestions"].includes(path)) throw new Error("Unknown endpoint");
   const account=await readAccount();
   const response = await fetch(WEB_ORIGIN + path, {
     method: "POST", headers: { "Content-Type": "application/json", "X-Navi-Extension-Id": chrome.runtime.id, "X-Navi-AI-Consent": aiConsent ? "yes" : "no", ...(account?{Authorization:`Bearer ${account.token}`}:{}) },
