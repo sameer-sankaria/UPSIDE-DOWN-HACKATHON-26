@@ -70,3 +70,37 @@
 @media (prefers-reduced-motion: no-preference) {
   [data-8b-live] #work .case { width: auto; }
 }
+
+@media (max-width: 699px) {
+  #hero { --ap: min(64vw, 28svh); }
+  #hero .hero__stage { top: calc(62% - var(--ap) / 2 + 18px); }
+}
+@media (min-width: 700px) and (max-width: 899px) {
+  #hero { --ap: min(24vw, 210px); }
+  #hero .hero__stage {
+    left: auto;
+    right: var(--space-1);
+    top: calc(52% - var(--ap) / 2);
+  }
+}
+@media (max-width: 599px) {
+  #method .method__body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: clamp(28px, 6vh, 48px);
+  }
+  #method .method__ring {
+    grid-column: 1;
+    grid-row: auto;
+    width: clamp(80px, 24vw, 112px);
+    justify-self: center;
+  }
+  #method .method__steps {
+    grid-column: 1;
+    grid-row: auto;
+    gap: clamp(48px, 10vh, 88px);
+  }
+  [data-8b-live] #method .method__ring {
+    position: relative;
+    top: auto;
+  }
+}
