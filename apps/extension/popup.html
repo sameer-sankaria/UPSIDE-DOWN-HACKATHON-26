@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>NAVI OS</title></head>
+<body>
+  <h1>NAVI OS — browser intelligence controls</h1>
+  <p>Tab-reading permissions last at most 30 minutes. Other opt-ins last for this browser session. Only tabs you authorize here participate.</p>
+  <button id="metadata">Authorize this tab's title and URL</button>
+  <button id="content">Allow visible page text for this tab</button>
+  <p>Content consent applies to the current document only. Navigation revokes it. Form controls and sensitive regions are excluded.</p>
+  <fieldset><legend>Authorized tabs — select one or two to analyze</legend><div id="tabs"></div></fieldset>
+  <button id="connect">Connect local backend (Chrome permission prompt)</button>
+  <button id="analyze">Extract selected tabs and send sanitized context to local backend</button>
+  <p id="connection"></p>
+  <fieldset><legend>Ghost Mode — session-only site/topic counters; no raw browsing history</legend>
+    <p id="ghost-state"></p>
+    <button id="enable">Enable / resume authorized session monitoring</button>
+    <button id="pause">Pause Ghost Mode</button>
+    <button id="disable">Disable and erase Ghost data</button>
+    <button id="clear">Clear Ghost data and pause</button>
+    <button id="ghost-fetch">Send counters to backend for suggestions</button>
+  </fieldset>
+  <label><input type="checkbox" id="open-permission">Allow opening selected search tabs after per-action approval</label>
+  <div id="suggestions"></div>
+  <button id="refresh">Refresh state</button>
+  <button id="clear-session">Revoke all permissions and clear NAVI session</button>
+  <pre id="result" role="status" aria-live="polite"></pre>
+  <script type="module" src="popup.js"></script>
+</body></html>
