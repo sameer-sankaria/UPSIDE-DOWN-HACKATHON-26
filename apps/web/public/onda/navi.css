@@ -22,7 +22,6 @@
   grid-template-rows: auto minmax(100px, 1fr) auto;
   gap: 16px;
   padding: clamp(18px, 2.4vw, 36px);
-  min-height: 480px;
   min-width: 0;
   width: 100%;
   max-width: calc(100vw - 2 * var(--space-1));

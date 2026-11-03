@@ -77,7 +77,11 @@ items.forEach((item, index) => { item.style.setProperty('--i', index); item.styl
 number();
 measures.add(number);
 requestAnimationFrame(realign);
-new ResizeObserver(remeasure).observe(document.body);
+const resizeObserver = new ResizeObserver(remeasure);
+[document.body, ...document.querySelectorAll('#work .work__stage, #work .work__track, #work .case__tag, #work .case__text, #work .case__line')]
+  .filter(element => element instanceof Element)
+  .forEach(element => resizeObserver.observe(element));
+addEventListener('resize', remeasure, { passive: true });
 document.fonts?.ready.then(remeasure);
 addEventListener('load', remeasure);
 window.motionReady = (document.fonts?.ready ?? Promise.resolve()).then(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
