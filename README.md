@@ -1,4 +1,4 @@
-# NAVI OS — Phase 6A browser companion
+# NAVI OS — Phase 7 assistant reliability
 
 TypeScript npm-workspaces monorepo: `apps/web`, `apps/extension`, `packages/shared`.
 
@@ -14,13 +14,19 @@ Publishing a Git branch does not start the web server. From the repository root,
 
 The dev config permits JavaScript and HMR from this Codespace's exact forwarding hostname. It does not widen API or extension origins. `/` and `/login` can load without Supabase configuration; `/dashboard` intentionally redirects unauthenticated visitors to `/login`. Completing login still requires the Phase 5 environment and Supabase setup. The existing extension bridge and authentication callback configuration retain their localhost boundary.
 
+## Phase 7 assistant reliability
+
+The existing companion now supports bounded account/session conversation context, follow-up YouTube searches, summaries of the active separately authorized document, editable email drafts with reviewed Gmail composition, permitted-tab listing/title search, and separately approved tab closing. Voice processing recovers if recognition stalls. Browser actions still use the original permission/snapshot/approval engine; NAVI does not send emails or confirm media playback.
+
+See [the Phase 7 baseline](docs/PHASE7-BASELINE.md) and [verification results, limitations and manual Chrome checklist](docs/PHASE7-VERIFICATION.md). Live Gemini, hosted Supabase, native authenticated Side Panel and microphone acceptance remain unverified; Phase 7 is not fully production-verified. Production APIs now fail closed without configured authentication, while unconfigured local development retains the legacy deterministic test path. Marketing UI and animations are unchanged.
+
 ## Chrome browser companion (Phase 6A)
 
 The extension toolbar now opens NAVI's Side Panel. Chat with the existing Gemini backend, review SHOW ME plans, or use DO IT for one explicitly approved navigation/search/tab-switch action. Push-to-talk speech input produces an editable transcript; typed input is always available. “Hey Buddy” is an optional prefix, not an always-listening wake word.
 
 Build/reload `apps/extension/dist`, then click the toolbar action or use **Ctrl+Shift+Y** (**Command+Shift+Y** on macOS). Review or customize conflicts at `chrome://extensions/shortcuts`. **Controls** opens the existing account, permission, ContextFlow and Ghost interface inside the panel. Sign in through the website and connect the backend there. The existing website dashboard remains available.
 
-See [Phase 6A loading instructions, security, verification and manual checklist](docs/PHASE6A-VERIFICATION.md). No new database or provider was added. Full page summarization, email composition/sending, autonomous workflows, and background wake-word detection are outside this phase.
+See [Phase 6A loading instructions, security, verification and manual checklist](docs/PHASE6A-VERIFICATION.md). No new database or provider was added. This section describes the original Phase 6A baseline. Phase 7 adds bounded authorized-page summaries and reviewed email composition; sending, autonomous workflows, and background wake-word detection remain unsupported.
 
 ## Supabase accounts (Phase 5)
 

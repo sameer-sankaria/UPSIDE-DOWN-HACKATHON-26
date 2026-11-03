@@ -17,6 +17,8 @@ export interface SessionState {
   assistant?: AssistantGrant;
   companion?: AssistantGrant;
   companionAllowSwitch?:boolean;
+  companionAllowClose?:boolean;
+  companionConversation?: { userId: string; expiresAt: number; turns: import("@navi-os/shared").ConversationMessage[] };
   tabs: Record<string, AuthorizedTab>;
   remoteAIAllowed?: boolean;
   backendAllowed: boolean;
@@ -35,6 +37,7 @@ export function emptySession(): SessionState {
     ghost: { mode: "disabled", patterns: [], dismissed: [], lastSignature: "", lastObservedAt: 0 }, pending: [] };
 }
 export function pruneSession(state: SessionState, now: number): SessionState {
+  if (state.companionConversation && state.companionConversation.expiresAt <= now) delete state.companionConversation;
   for (const [id, tab] of Object.entries(state.tabs)) if (tab.expiresAt <= now) delete state.tabs[id];
   state.ghost.patterns = state.ghost.patterns.filter(p => now - p.lastSeenAt < SESSION_TTL);
   state.pending = state.pending.filter(p => p.expiresAt > now);

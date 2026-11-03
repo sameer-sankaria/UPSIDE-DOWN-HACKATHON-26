@@ -12,6 +12,7 @@ export function isDashboardSender(sender: ExternalSender) {
 /** Credentials are minted only by the extension popup; plans never grant privileges. */
 export class AssistantEngine {
   private epoch = 0;
+  private queue: Promise<unknown> = Promise.resolve();
   constructor(private store: SessionStore, private context: Pick<ContextController, "captureAssistant">, private now = Date.now) {}
   stop() { this.epoch++; }
   private async authorize(command: AssistantBridgeCommand, sender: ExternalSender, native=false) {
@@ -39,9 +40,11 @@ export class AssistantEngine {
     if (!pending || pending.expiresAt <= this.now()) throw new Error("Plan expired");
     const action = pending.actions[index]; if (!action) throw new Error("Invalid action selection");
     if ((action.type === "search" || action.type === "open_tab" || action.type === "open_url") && !state.openTabsAllowed) throw new Error("Enable search/tab opening permission in the popup");
+    if (action.type === "close_tab" && !grant.allowClose) throw new Error("Grant separate close-tab permission in the companion");
+    if (action.type === "close_tab" && !await chrome.permissions.contains({ permissions: ["tabs"] })) throw new Error("Tab verification permission required");
     if ((action.type === "switch_tab" || action.type === "group_tabs") && !grant.allowManage) throw new Error("Grant switch/group permission in the popup");
     if ((action.type === "search" || action.type === "open_tab" || action.type === "open_url") && !await chrome.permissions.contains({ permissions: ["tabs"] })) throw new Error("Grant optional new-tab destination verification permission in the popup");
-    const ids = action.type === "switch_tab" ? [action.tabId] : action.type === "group_tabs" ? action.tabIds : Object.keys(pending.snapshots).map(Number);
+    const ids = action.type === "switch_tab" || action.type === "close_tab" ? [action.tabId] : action.type === "group_tabs" ? action.tabIds : Object.keys(pending.snapshots).map(Number);
     for (const id of ids) await this.checkedTab(state, id, pending.snapshots[id]);
     if(action.type==="open_url"&&!grant.approvedUrls?.includes(action.url))throw new Error("Destination was not explicitly requested");
     if (action.type === "open_tab" && !Object.values(state.tabs).some(t => t.origin === action.origin)) throw new Error("Destination origin is not authorized");
@@ -54,10 +57,18 @@ export class AssistantEngine {
   }
   async handle(value:unknown,sender:ExternalSender){return this.run(value,sender,false);}
   async handleNative(value:unknown,sender:ExternalSender){return this.run(value,sender,true);}
-  private async run(value: unknown, sender: ExternalSender,native:boolean) {
+  private run(value: unknown, sender: ExternalSender,native:boolean) {
+    const scheduledEpoch = this.epoch;
+    const next = this.queue.then(() => {
+      if (parseBridgeCommand(value).type === "NAVI_ASSISTANT_EXECUTE" && scheduledEpoch !== this.epoch) throw new Error("Execution cancelled before it started");
+      return this.perform(value,sender,native);
+    });
+    this.queue = next.catch(() => undefined); return next;
+  }
+  private async perform(value: unknown, sender: ExternalSender,native:boolean) {
     const command = parseBridgeCommand(value); const startEpoch = this.epoch; const { state, grant } = await this.authorize(command, sender,native);
     if (command.type === "NAVI_ASSISTANT_CONTEXT") {
-      if(native&&command.contentTabIds.length)throw new Error("The companion reads metadata only");
+      if(native&&command.contentTabIds.length>1)throw new Error("Summarize only one authorized page at a time");
       const tabs = await this.context.captureAssistant(command.contentTabIds);
       const snapshots: Record<string, string> = {};
       for (const tab of tabs) snapshots[tab.tabId] = await hash((await this.checkedTab(state, tab.tabId)).url!);
@@ -81,7 +92,7 @@ export class AssistantEngine {
         if(command.plan.actions.length>1)throw new Error("Only one companion action");
         for(const action of command.plan.actions){
           if(action.type==="open_url"){if(!grant.approvedUrls?.includes(action.url))throw new Error("Destination not requested");}
-          else if(action.type==="switch_tab"){if(!tabs.some(t=>t.tabId===action.tabId))throw new Error("Tab not authorized");}
+          else if(action.type==="switch_tab" || action.type==="close_tab"){if(!tabs.some(t=>t.tabId===action.tabId))throw new Error("Tab not authorized");}
           else if(action.type!=="search")throw new Error("Unsupported companion action");
         }
       }else validatePlanContext(command.plan, tabs);
@@ -105,6 +116,10 @@ export class AssistantEngine {
         const latest = await this.authorize(command, sender,native);
         if (latest.grant.token !== grant.token) throw new Error("Permission revoked");
         if ((action.type === "search" || action.type === "open_tab" || action.type === "open_url") && !latest.state.openTabsAllowed) throw new Error("Opening permission revoked");
+        if (action.type === "close_tab") {
+          if (!native || !latest.grant.allowClose || !await chrome.permissions.contains({permissions:["tabs"]})) throw new Error("Closing permission revoked");
+          await this.checkedTab(latest.state,action.tabId,snapshots[action.tabId]);
+        }
         if (action.type === "switch_tab" || action.type === "group_tabs") {
           if (!latest.grant.allowManage) throw new Error("Management permission revoked");
           for (const id of action.type === "switch_tab" ? [action.tabId] : action.tabIds) await this.checkedTab(latest.state, id, snapshots[id]);
@@ -122,6 +137,9 @@ export class AssistantEngine {
           if (created.id === undefined) throw new Error("Chrome did not return a tab ID");
           const verified = await chrome.tabs.get(created.id);
           if (verified.incognito || (verified.pendingUrl ?? verified.url) !== new URL(url).href) throw new Error("New tab destination could not be verified");
+        } else if (action.type === "close_tab") {
+          await chrome.tabs.remove(action.tabId);
+          if ((await chrome.tabs.query({})).some(t => t.id === action.tabId)) throw new Error("Tab closure could not be verified");
         } else if (action.type === "switch_tab") {
           await chrome.tabs.update(action.tabId, { active: true });
           if (!(await chrome.tabs.get(action.tabId)).active) throw new Error("Active tab could not be verified");

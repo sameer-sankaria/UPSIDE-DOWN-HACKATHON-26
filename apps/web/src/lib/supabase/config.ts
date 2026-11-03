@@ -6,4 +6,4 @@ export function supabaseConfig() {
   return { url, key };
 }
 
-export function accountAuthRequired(){return !!(process.env.NEXT_PUBLIC_SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);}
+export function accountAuthRequired(){return process.env.NODE_ENV==="production" || !!(process.env.NEXT_PUBLIC_SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY);}

@@ -18,8 +18,12 @@ for (const action of [
   { type: "open_tab", origin: "javascript:alert(1)" }, { type: "open_tab", origin: "https://react.dev/?secret=x" },
   { type: "open_tab", origin: "https://user:pass@react.dev" }, { type: "switch_tab", tabId: -1 },
   { type: "group_tabs", tabIds: [1, 1], title: "duplicate" }, { type: "group_tabs", tabIds: [1], title: "one" },
-  { type: "submit_form", tabId: 1 }, { type: "close_tab", tabId: 1 },
+  { type: "submit_form", tabId: 1 }, { type: "close_tab", tabId: 1, approved: true },
 ]) test(`reject untrusted action ${JSON.stringify(action)}`, () => assert.throws(() => assistantPlanSchema.parse({ ...plan(), actions: [action] })));
+
+test("dashboard rejects native-only closing actions", () => {
+ assert.throws(() => validatePlanContext(plan([{type:"close_tab",tabId:1}]), request.tabs));
+});
 
 test("request schema bounds instructions, context, duplicate IDs, and unknown fields", () => {
   assert.throws(() => assistantRequestSchema.parse({ ...request, instruction: "x".repeat(2001) }));

@@ -4,7 +4,7 @@ import { supabaseConfig } from "./lib/supabase/config";
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({request}); const config = supabaseConfig();
   if (!config) return response;
-  const db = createServerClient(config.url,config.key,{ cookieOptions:{httpOnly:true,sameSite:"lax",secure:false}, cookies: {
+  const db = createServerClient(config.url,config.key,{ cookieOptions:{httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production"}, cookies: {
     getAll:()=>request.cookies.getAll(),
     setAll(values) {
       for (const {name,value} of values) request.cookies.set(name,value);

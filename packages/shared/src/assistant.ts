@@ -9,6 +9,7 @@ export type PlannedAction =
   | { type: "search"; query: string }
   | { type: "open_tab"; origin: string }
   | { type: "switch_tab"; tabId: number }
+  | { type: "close_tab"; tabId: number }
   | { type: "group_tabs"; tabIds: number[]; title: string };
 export interface AssistantPlan { version: 1; summary: string; steps: string[]; actions: PlannedAction[] }
 export interface AssistantRequest { version: 1; mode: AssistantMode; instruction: string; tabs: TabContext[] }
@@ -27,7 +28,7 @@ export function parseAction(value: unknown): PlannedAction {
     case "search": obj(value, ["type", "query"]); ensure(str(value.query, 200) && !/[\r\n]/.test(value.query)); break;
     case "open_tab": obj(value, ["type", "origin"]); ensure(str(value.origin, 300));
       try { ensure(safeOrigin(value.origin) === value.origin && !isSensitiveUrl(value.origin)); } catch { throw new ValidationError("Safe origin required"); } break;
-    case "switch_tab": obj(value, ["type", "tabId"]); ensure(tab(value.tabId)); break;
+    case "close_tab": case "switch_tab": obj(value, ["type", "tabId"]); ensure(tab(value.tabId)); break;
     case "group_tabs": obj(value, ["type", "tabIds", "title"]); ensure(Array.isArray(value.tabIds) && value.tabIds.length >= 2 && value.tabIds.length <= 10 && value.tabIds.every(tab) && new Set(value.tabIds).size === value.tabIds.length && str(value.title, 60)); break;
     default: throw new ValidationError("Unsupported browser action");
   }
@@ -56,7 +57,7 @@ export const assistantResponseSchema: Schema<AssistantResponse> = { parse(value)
 export function validatePlanContext(plan: AssistantPlan, tabs: Pick<TabContext, "tabId" | "url">[]) {
   const ids = new Set(tabs.map(t => t.tabId)); const origins = new Set(tabs.map(t => t.url));
   for (const action of plan.actions) {
-    if(action.type==="open_url")ensure(false);
+    if(action.type==="open_url" || action.type==="close_tab")ensure(false);
     if (action.type === "switch_tab") ensure(ids.has(action.tabId));
     if (action.type === "group_tabs") ensure(action.tabIds.every(id => ids.has(id)));
     if (action.type === "open_tab") ensure(origins.has(action.origin));
@@ -72,6 +73,7 @@ export const PLAN_JSON_SCHEMA = {
       { type: "object", additionalProperties: false, required: ["type", "query"], properties: { type: { type: "string", enum: ["search"] }, query: { type: "string", maxLength: 200 } } },
       { type: "object", additionalProperties: false, required: ["type", "origin"], properties: { type: { type: "string", enum: ["open_tab"] }, origin: { type: "string", maxLength: 300 } } },
       { type: "object", additionalProperties: false, required: ["type", "tabId"], properties: { type: { type: "string", enum: ["switch_tab"] }, tabId: { type: "integer", minimum: 0 } } },
+      { type: "object", additionalProperties: false, required: ["type", "tabId"], properties: { type: { type: "string", enum: ["close_tab"] }, tabId: { type: "integer", minimum: 0 } } },
       { type: "object", additionalProperties: false, required: ["type", "tabIds", "title"], properties: { type: { type: "string", enum: ["group_tabs"] }, tabIds: { type: "array", minItems: 2, maxItems: 10, items: { type: "integer", minimum: 0 } }, title: { type: "string", maxLength: 60 } } },
     ] } },
   },
@@ -80,6 +82,7 @@ export const PLAN_JSON_SCHEMA = {
 export interface AssistantGrant {
   accountUserId?:string;
   approvedUrls?:string[];
+  allowClose?: boolean;
   token: string; expiresAt: number; dashboardTabId?: number; allowManage: boolean;
   pending?: { id: string; mode: "DO_IT"; actions: PlannedAction[]; snapshots: Record<string, string>; expiresAt: number };
   capture?: { id: string; snapshots: Record<string, string>; expiresAt: number };

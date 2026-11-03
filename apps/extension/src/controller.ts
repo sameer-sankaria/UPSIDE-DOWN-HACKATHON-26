@@ -94,6 +94,7 @@ export class ContextController {
     let state = await this.load();
     try {
       if (["REVOKE_TAB", "REVOKE_CONTENT", "AUTHORIZE_METADATA", "AUTHORIZE_CONTENT", "SET_OPEN_PERMISSION", "SET_AI_CONSENT"].includes(command.type)) {
+        delete state.companionConversation;
         for(const grant of [state.assistant,state.companion])if(grant){delete grant.pending;delete grant.capture;}
       }
       switch (command.type) {

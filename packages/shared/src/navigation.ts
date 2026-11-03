@@ -3,7 +3,7 @@ export const KNOWN_SITES: Record<string,string> = {youtube:"https://www.youtube.
 export function stripBuddyPrefix(value:string){return value.replace(/^\s*hey\s+buddy\b[\s,:.!-]*/i,"").trim();}
 export function safeNavigationUrl(value:string):string{
  if(typeof value!=="string"||value.length>2000||/[\s\u0000-\u001f\\]/.test(value))throw new Error("Use a public HTTPS URL without spaces or credentials.");
- const u=new URL(value);const h=u.hostname.toLowerCase();
+ const u=new URL(value);const h=u.hostname.toLowerCase().replace(/\.+$/,"");
  if(u.protocol!=="https:"||u.username||u.password||u.port&&u.port!=="443"||h==="localhost"||h.endsWith(".localhost")||h.endsWith(".local")||!h.includes(".")||h.includes(":")||h.startsWith("[")||/^\d+(?:\.\d+){3}$/.test(h)||h.endsWith(".internal"))throw new Error("Only public HTTPS website addresses are supported.");
  return u.href;
 }

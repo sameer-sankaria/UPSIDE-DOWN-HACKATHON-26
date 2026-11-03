@@ -37,7 +37,7 @@ chrome.runtime.onMessageExternal.addListener((message: unknown, sender, sendResp
 });
 chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if(isPanelSender(sender)){
-    try{const command=parseCompanionCommand(message);if(command.type==="COMPANION_CANCEL")companion.stop();
+    try{const command=parseCompanionCommand(message);if(command.type==="COMPANION_CANCEL"||command.type==="COMPANION_CLEAR")companion.stop();
       const work=()=>companion.dispatch(command,sender);
       // Chat waits outside the mutation queue, so Stop can abort a pending model request.
       const task=command.type==="COMPANION_CHAT"?work():enqueue(work);
