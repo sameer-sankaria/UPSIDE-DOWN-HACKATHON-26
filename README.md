@@ -8,6 +8,12 @@ The existing Phase 1 ping contract is unchanged. Dashboard actions use a separat
 
 See [Phase 4 setup, architecture, security, verification, and limitations](docs/PHASE4-VERIFICATION.md). The source template remains intact; template license and credits are served from `apps/web/public/onda/`.
 
+## Open the website in GitHub Codespaces
+
+Publishing a Git branch does not start the web server. From the repository root, run `npm run dev` and leave that terminal running. In Codespaces, open **Ports**, forward **3000** if it is absent, keep its visibility **Private**, and click **Open in Browser**. Sign into GitHub if prompted. The URL is `https://<CODESPACE_NAME>-3000.<GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN>`; use the forwarded URL on your computer, rather than your computer's `localhost:3000`.
+
+The dev config permits JavaScript and HMR from this Codespace's exact forwarding hostname. It does not widen API or extension origins. `/` and `/login` can load without Supabase configuration; `/dashboard` intentionally redirects unauthenticated visitors to `/login`. Completing login still requires the Phase 5 environment and Supabase setup. The existing extension bridge and authentication callback configuration retain their localhost boundary.
+
 ## Chrome browser companion (Phase 6A)
 
 The extension toolbar now opens NAVI's Side Panel. Chat with the existing Gemini backend, review SHOW ME plans, or use DO IT for one explicitly approved navigation/search/tab-switch action. Push-to-talk speech input produces an editable transcript; typed input is always available. “Hey Buddy” is an optional prefix, not an always-listening wake word.
