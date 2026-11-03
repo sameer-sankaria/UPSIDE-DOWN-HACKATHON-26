@@ -15,3 +15,58 @@
 @media(max-width:699px){.hero__intro{display:flex;flex-direction:column;align-items:flex-start}.hero__intro .m-btn{font-size:14px}.navi-product-art{padding:24px;min-height:240px}.navi-browser{padding:18px}.navi-permission{padding:20px}.navi-art__number{font-size:220px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 #hero .navi-description{color:#c7c0d9}#again .partner__card::after{background:none;pointer-events:none}
+
+/* Feature content owns its space; the tilted artwork stays in its own row. */
+#work .case {
+  display: grid;
+  grid-template-rows: auto minmax(100px, 1fr) auto;
+  gap: 16px;
+  padding: clamp(18px, 2.4vw, 36px);
+  min-height: 480px;
+  min-width: 0;
+  width: 100%;
+  max-width: calc(100vw - 2 * var(--space-1));
+  isolation: isolate;
+  container-type: inline-size;
+}
+#work .case__tag {
+  position: relative;
+  inset: auto;
+  grid-row: 1;
+  justify-self: start;
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.3;
+  padding-block: 6px;
+}
+#work .case__media {
+  position: relative;
+  inset: auto;
+  grid-row: 2;
+  min-width: 0;
+  border-radius: 12px;
+}
+#work .case__text {
+  position: relative;
+  inset: auto;
+  grid-row: 3;
+  min-width: 0;
+  gap: 12px;
+}
+#work .case__name {
+  font-size: clamp(24px, 7cqi, 40px);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+#work .case__line {
+  font-size: clamp(16px, 4cqi, 19px);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+#work .navi-browser { padding: 12px; }
+#work .navi-browser strong { font-size: clamp(16px, 5cqi, 28px); line-height: 1.15; }
+#work .navi-browser hr { margin: 8px 0 12px; }
+#work .navi-bars { margin-top: 12px; gap: 6px; }
+@media (prefers-reduced-motion: no-preference) {
+  [data-8b-live] #work .case { width: auto; }
+}
