@@ -1,9 +1,11 @@
+import {safeNavigationUrl} from "./navigation";
 import { isRecord } from "./protocol";
 import { isSensitiveUrl, safeOrigin, type TabContext } from "./intelligence";
 import { ValidationError, type Schema, contextRequestSchema } from "./schemas";
 
 export type AssistantMode = "SHOW_ME" | "DO_IT";
 export type PlannedAction =
+  | { type: "open_url"; url: string }
   | { type: "search"; query: string }
   | { type: "open_tab"; origin: string }
   | { type: "switch_tab"; tabId: number }
@@ -21,6 +23,7 @@ function tab(value: unknown): value is number { return Number.isInteger(value) &
 export function parseAction(value: unknown): PlannedAction {
   ensure(isRecord(value));
   switch (value.type) {
+    case "open_url": obj(value,["type","url"]); ensure(str(value.url,2000)); try{ensure(safeNavigationUrl(value.url)===value.url);}catch{throw new ValidationError("Safe HTTPS URL required");} break;
     case "search": obj(value, ["type", "query"]); ensure(str(value.query, 200) && !/[\r\n]/.test(value.query)); break;
     case "open_tab": obj(value, ["type", "origin"]); ensure(str(value.origin, 300));
       try { ensure(safeOrigin(value.origin) === value.origin && !isSensitiveUrl(value.origin)); } catch { throw new ValidationError("Safe origin required"); } break;
@@ -53,6 +56,7 @@ export const assistantResponseSchema: Schema<AssistantResponse> = { parse(value)
 export function validatePlanContext(plan: AssistantPlan, tabs: Pick<TabContext, "tabId" | "url">[]) {
   const ids = new Set(tabs.map(t => t.tabId)); const origins = new Set(tabs.map(t => t.url));
   for (const action of plan.actions) {
+    if(action.type==="open_url")ensure(false);
     if (action.type === "switch_tab") ensure(ids.has(action.tabId));
     if (action.type === "group_tabs") ensure(action.tabIds.every(id => ids.has(id)));
     if (action.type === "open_tab") ensure(origins.has(action.origin));
@@ -64,6 +68,7 @@ export const PLAN_JSON_SCHEMA = {
     version: { type: "integer", enum: [1] }, summary: { type: "string", maxLength: 4000 },
     steps: { type: "array", maxItems: 8, items: { type: "string", maxLength: 500 } },
     actions: { type: "array", maxItems: 5, items: { anyOf: [
+      {type:"object",additionalProperties:false,required:["type","url"],properties:{type:{type:"string",enum:["open_url"]},url:{type:"string",maxLength:2000}}},
       { type: "object", additionalProperties: false, required: ["type", "query"], properties: { type: { type: "string", enum: ["search"] }, query: { type: "string", maxLength: 200 } } },
       { type: "object", additionalProperties: false, required: ["type", "origin"], properties: { type: { type: "string", enum: ["open_tab"] }, origin: { type: "string", maxLength: 300 } } },
       { type: "object", additionalProperties: false, required: ["type", "tabId"], properties: { type: { type: "string", enum: ["switch_tab"] }, tabId: { type: "integer", minimum: 0 } } },
@@ -73,6 +78,8 @@ export const PLAN_JSON_SCHEMA = {
 } as const;
 
 export interface AssistantGrant {
+  accountUserId?:string;
+  approvedUrls?:string[];
   token: string; expiresAt: number; dashboardTabId?: number; allowManage: boolean;
   pending?: { id: string; mode: "DO_IT"; actions: PlannedAction[]; snapshots: Record<string, string>; expiresAt: number };
   capture?: { id: string; snapshots: Record<string, string>; expiresAt: number };

@@ -15,6 +15,8 @@ export interface SessionState {
   version: 2;
   accountPreferences?: AccountPreferences;
   assistant?: AssistantGrant;
+  companion?: AssistantGrant;
+  companionAllowSwitch?:boolean;
   tabs: Record<string, AuthorizedTab>;
   remoteAIAllowed?: boolean;
   backendAllowed: boolean;

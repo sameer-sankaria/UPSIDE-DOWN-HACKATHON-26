@@ -5,9 +5,9 @@ await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 await build({
   absWorkingDir: new URL("..", import.meta.url).pathname,
-  entryPoints: ["src/background.ts", "src/popup.ts"], outdir: output.pathname,
+  entryPoints: ["src/background.ts", "src/popup.ts", "src/sidepanel.ts"], outdir: output.pathname,
   bundle: true, format: "esm", platform: "browser", target: "chrome120",
 });
-for (const name of ["manifest.json", "popup.html"]) {
+for (const name of ["manifest.json", "popup.html", "sidepanel.html", "sidepanel.css"]) {
   await copyFile(new URL(`../${name}`, import.meta.url), new URL(name, output));
 }

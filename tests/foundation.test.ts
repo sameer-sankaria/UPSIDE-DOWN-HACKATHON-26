@@ -38,10 +38,10 @@ for (const message of [null, [], "ping", { ...ping, version: 2 }, { ...ping, typ
     assert.deepEqual(handleExternalMessage(message, sender), { version: 1, type: "NAVI_ERROR", code: "INVALID_MESSAGE" });
   });
 }
-test("manifest has minimal scoped Phase 2 capabilities, no unrestricted page access", async () => {
+test("manifest retains core permissions and adds Side Panel without unrestricted page access", async () => {
   const manifest = JSON.parse(await readFile(new URL("../apps/extension/manifest.json", import.meta.url), "utf8"));
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "storage"]);
+  assert.deepEqual(manifest.permissions, ["activeTab", "scripting", "storage", "sidePanel"]);
   assert.deepEqual(manifest.optional_host_permissions, ["http://localhost/*"]);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.content_scripts, undefined);
