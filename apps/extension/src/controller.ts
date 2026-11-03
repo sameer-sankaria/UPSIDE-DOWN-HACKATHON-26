@@ -11,6 +11,8 @@ async function urlHash(url: string): Promise<string> {
   return Array.from(new Uint8Array(bytes), b => b.toString(16).padStart(2, "0")).join("");
 }
 export class ContextController {
+  private requestAbort?: AbortController;
+  cancelPendingRequests() { this.requestAbort?.abort(); }
   constructor(private store: SessionStore, private post = postBackend, private now = Date.now) {}
   private async load() { return pruneSession(await this.store.load(), this.now()); }
   private async current() {
@@ -44,14 +46,57 @@ export class ContextController {
   private view(state: SessionState) {
     return {
       tabs: Object.values(state.tabs).map(t => ({ id: t.id, title: t.title, url: t.url, contentAllowed: !!t.content, expiresAt: t.expiresAt })),
-      backendAllowed: state.backendAllowed, openTabsAllowed: state.openTabsAllowed,
+      remoteAIAllowed: state.remoteAIAllowed ?? false, backendAllowed: state.backendAllowed, openTabsAllowed: state.openTabsAllowed,
+      assistant: state.assistant ? { token: state.assistant.token, expiresAt: state.assistant.expiresAt, allowManage: state.assistant.allowManage, paired: state.assistant.dashboardTabId !== undefined } : null,
       ghost: { mode: state.ghost.mode, patterns: state.ghost.patterns }, pending: state.pending,
     };
+  }
+  private async readContent(state: SessionState, ids: number[]) {
+    const tabs: ContextRequest["tabs"] = [];
+    for (const id of ids) {
+      const { grant, tab } = await this.authorized(state, id);
+      const consent = grant.content;
+      if (!consent || consent.urlHash !== await urlHash(tab.url)) throw new Error("Separate content permission required for each selected tab.");
+      const [injection] = await chrome.scripting.executeScript({
+        target: { tabId: id, documentIds: [consent.documentId] }, world: "ISOLATED", func: extractVisibleText, args: [tab.url],
+      });
+      if (injection?.documentId !== consent.documentId || injection.frameId !== 0 || !injection.result || injection.result.blocked || typeof injection.result.text !== "string") {
+        throw new Error("Extraction blocked: sensitive controls, stale page, or unavailable document.");
+      }
+      const latest = await this.authorized(state, id);
+      if (consent.urlHash !== await urlHash(latest.tab.url)) throw new Error("Page navigated during extraction.");
+      tabs.push({ tabId: id, title: sanitizeText(latest.tab.title ?? "", 200), url: grant.origin,
+        text: sanitizeText(injection.result.text), capturedAt: this.now() });
+    }
+    return tabs;
+  }
+  async captureAssistant(ids: number[]): Promise<ContextRequest["tabs"]> {
+    const state = await this.load();
+    if (!state.backendAllowed) throw new Error("Connect the local backend in the popup first.");
+    if (ids.length > 2 || new Set(ids).size !== ids.length) throw new Error("Select at most two content tabs.");
+    const content = await this.readContent(state, ids);
+    const tabs: ContextRequest["tabs"] = [];
+    for (const id of Object.keys(state.tabs).map(Number)) {
+      const { grant, tab } = await this.authorized(state, id);
+      tabs.push(content.find(t => t.tabId === id) ?? { tabId: id, title: sanitizeText(tab.title ?? "", 200), url: grant.origin, text: "", capturedAt: this.now() });
+    }
+    return tabs;
   }
   async dispatch(command: InternalCommand): Promise<unknown> {
     let state = await this.load();
     try {
+      if (state.assistant && ["REVOKE_TAB", "REVOKE_CONTENT", "AUTHORIZE_METADATA", "AUTHORIZE_CONTENT", "SET_OPEN_PERMISSION", "SET_AI_CONSENT"].includes(command.type)) {
+        delete state.assistant.pending; delete state.assistant.capture;
+      }
       switch (command.type) {
+        case "ASSISTANT_PAIR": {
+          if (!state.backendAllowed) throw new Error("Connect the local backend first.");
+          if (command.allowManage && !await chrome.permissions.contains({ permissions: ["tabGroups"] })) throw new Error("Grant optional tab group permission first.");
+          const bytes = crypto.getRandomValues(new Uint8Array(32));
+          state.assistant = { token: Array.from(bytes, b => b.toString(16).padStart(2, "0")).join(""), expiresAt: this.now() + SESSION_TTL, allowManage: command.allowManage, results: [] };
+          break;
+        }
+        case "ASSISTANT_REVOKE": delete state.assistant; await chrome.permissions.remove({ permissions: ["tabs", "tabGroups"] }); break;
         case "STATE": {
           for (const id of Object.keys(state.tabs)) {
             try {
@@ -83,6 +128,7 @@ export class ContextController {
           if (!await chrome.permissions.contains({ origins: ["http://localhost/*"] })) throw new Error("Local backend permission was not granted.");
           state.backendAllowed = true; break;
         }
+        case "SET_AI_CONSENT": state.remoteAIAllowed = command.enabled; break;
         case "SET_OPEN_PERMISSION": state.openTabsAllowed = command.enabled; break;
         case "GHOST_CONTROL": {
           if (command.action === "enable") { state.ghost.mode = "enabled"; this.observe(state); }
@@ -96,25 +142,11 @@ export class ContextController {
         }
         case "ANALYZE": {
           if (!state.backendAllowed) throw new Error("Connect the local backend before sending context.");
-          const tabs: ContextRequest["tabs"] = [];
-          for (const id of command.tabIds) {
-            const { grant, tab } = await this.authorized(state, id);
-            const consent = grant.content;
-            if (!consent || consent.urlHash !== await urlHash(tab.url)) throw new Error("Separate content permission required for each selected tab.");
-            const [injection] = await chrome.scripting.executeScript({
-              target: { tabId: id, documentIds: [consent.documentId] }, world: "ISOLATED", func: extractVisibleText, args: [tab.url],
-            });
-            if (injection?.documentId !== consent.documentId || injection.frameId !== 0 || !injection.result || injection.result.blocked || typeof injection.result.text !== "string") {
-              throw new Error("Extraction blocked: sensitive controls, stale page, or unavailable document.");
-            }
-            const latest = await this.authorized(state, id);
-            if (consent.urlHash !== await urlHash(latest.tab.url)) throw new Error("Page navigated during extraction.");
-            tabs.push({ tabId: id, title: sanitizeText(latest.tab.title ?? "", 200), url: grant.origin,
-              text: sanitizeText(injection.result.text), capturedAt: this.now() });
-          }
+          const tabs = await this.readContent(state, command.tabIds);
           const body = contextRequestSchema.parse({ version: 1, tabs });
-          const analysis = await this.post("/api/browser-context", body, analysisSchema);
-          const recommendations = await this.post("/api/contextflow", body, recommendationsSchema);
+          this.requestAbort = new AbortController();
+          const analysis = await this.post("/api/browser-context", body, analysisSchema, false, this.requestAbort.signal);
+          const recommendations = await this.post("/api/contextflow", body, recommendationsSchema, state.remoteAIAllowed ?? false, this.requestAbort.signal);
           this.stage(state, "contextflow", recommendations.recommendations);
           await this.store.save(state);
           return { ...this.view(state), analysis };
@@ -123,7 +155,8 @@ export class ContextController {
           if (state.ghost.mode !== "enabled") throw new Error("Enable Ghost Mode first.");
           if (!state.backendAllowed) throw new Error("Connect the local backend first.");
           const body = ghostRequestSchema.parse({ version: 1, patterns: state.ghost.patterns });
-          const result = await this.post("/api/ghost/suggestions", body, recommendationsSchema);
+          this.requestAbort = new AbortController();
+          const result = await this.post("/api/ghost/suggestions", body, recommendationsSchema, state.remoteAIAllowed ?? false, this.requestAbort.signal);
           this.stage(state, "ghost", result.recommendations); break;
         }
         case "DISMISS": {
@@ -148,7 +181,7 @@ export class ContextController {
         }
         case "CLEAR_SESSION": {
           state = emptySession(); await this.store.save(state);
-          await chrome.permissions.remove({ origins: ["http://localhost/*"] }); break;
+          await chrome.permissions.remove({ origins: ["http://localhost/*"], permissions: ["tabs", "tabGroups"] }); break;
         }
       }
       await this.store.save(state);
@@ -158,7 +191,7 @@ export class ContextController {
   async updated(id: number, change: { url?: string; title?: string; status?: string }, tab: chrome.tabs.Tab) {
     const state = await this.load(); const grant = state.tabs[id];
     if (!grant) { await this.store.save(state); return; }
-    if (change.url !== undefined || change.status === "loading") { delete grant.content; state.pending = []; }
+    if (change.url !== undefined || change.status === "loading") { delete grant.content; state.pending = []; if (state.assistant) { delete state.assistant.pending; delete state.assistant.capture; } }
     if (change.url && (isSensitiveUrl(change.url) || safeOrigin(change.url) !== grant.origin)) {
       delete state.tabs[id]; state.pending = [];
     } else if (state.ghost.mode === "enabled") {
@@ -179,7 +212,7 @@ export class ContextController {
   }
   async removed(id: number) {
     const state = await this.load();
-    if (state.tabs[id]) { delete state.tabs[id]; state.pending = []; }
+    if (state.tabs[id]) { delete state.tabs[id]; state.pending = []; if (state.assistant) { delete state.assistant.pending; delete state.assistant.capture; } }
     await this.store.save(state);
   }
 }

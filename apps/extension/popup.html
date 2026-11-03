@@ -1,7 +1,10 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>NAVI OS</title></head>
+<html lang="en"><head><meta charset="utf-8"><title>NAVI OS</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{color-scheme:dark;font-family:Arial,sans-serif;background:#0d0c11;color:#f7f5ff}*{box-sizing:border-box}body{width:430px;max-width:100vw;margin:0;padding:24px;font-size:13px;line-height:1.6}h1{font-size:27px;letter-spacing:-1px;line-height:1.1;margin:0 0 18px}h1::after{content:"●";color:#9c7aff;font-size:15px;margin-left:8px}p{color:#c5bdd3}button{font:600 12px/1.5 Arial,sans-serif;padding:10px 14px;background:#6c3cff;border:1px solid transparent;border-radius:12px;color:#fff;cursor:pointer;margin:4px 4px 4px 0;text-align:left}button:hover{background:#8056ff}button:disabled{opacity:.5;cursor:wait}fieldset{border:1px solid #484052;border-radius:16px;padding:16px;margin:20px 0;background:#19151f}legend{font-weight:700;color:#d2bfff;padding:0 5px}label{display:block;margin:10px 0}input[type=checkbox]{accent-color:#a88aff;vertical-align:middle}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#1f1b28;padding:14px;border-radius:12px;font-size:11px;max-height:280px;overflow:auto}a{color:#cbb6ff}#clear-session,#disable{background:transparent;border-color:#937dba}#ghost-state,#connection{color:#e1d3ff}#tabs p{border-bottom:1px solid #ffffff20;padding-bottom:8px}:focus-visible{outline:3px solid #c0a8ff;outline-offset:3px}@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head>
 <body>
-  <h1>NAVI OS — browser intelligence controls</h1>
+  <h1>NAVI OS</h1><a href="http://localhost:3000/dashboard" target="_blank" rel="noopener noreferrer">Open connection dashboard ↗</a>
   <p>Tab-reading permissions last at most 30 minutes. Other opt-ins last for this browser session. Only tabs you authorize here participate.</p>
   <button id="metadata">Authorize this tab's title and URL</button>
   <button id="content">Allow visible page text for this tab</button>
@@ -10,6 +13,7 @@
   <button id="connect">Connect local backend (Chrome permission prompt)</button>
   <button id="analyze">Extract selected tabs and send sanitized context to local backend</button>
   <p id="connection"></p>
+  <label><input type="checkbox" id="ai-consent">Allow explicitly requested ContextFlow and Ghost backend suggestions to send sanitized context or aggregate counters to Google Gemini. Off by default. Local deterministic suggestions remain available.</label>
   <fieldset><legend>Ghost Mode — session-only site/topic counters; no raw browsing history</legend>
     <p id="ghost-state"></p>
     <button id="enable">Enable / resume authorized session monitoring</button>
@@ -20,6 +24,15 @@
   </fieldset>
   <label><input type="checkbox" id="open-permission">Allow opening selected search tabs after per-action approval</label>
   <div id="suggestions"></div>
+  <fieldset><legend>Dashboard assistant pairing — opt-in</legend>
+    <p>Pair only your trusted http://localhost:3000/dashboard tab. This grants that tab access to enrolled metadata and separately permitted page text. Planning may send captured context to Google Gemini after dashboard consent. No browser action runs without explicit approval.</p>
+    <label><input type="checkbox" id="assistant-manage">Also allow approved switching and grouping of enrolled tabs (optional Chrome permission)</label>
+    <label><input type="checkbox" id="assistant-verify">Allow new-tab destination verification (optional Chrome tabs metadata permission). Required for dashboard search/open actions; NAVI still reads only enrolled tabs and tabs it creates.</label>
+    <button id="assistant-pair">Enable / regenerate dashboard pairing</button>
+    <button id="assistant-revoke">Revoke dashboard access and stop actions</button>
+    <p id="assistant-state" role="status"></p>
+    <label>Session pairing token — copy into your dashboard<input id="assistant-token" type="password" readonly autocomplete="off" style="width:100%"></label>
+  </fieldset>
   <button id="refresh">Refresh state</button>
   <button id="clear-session">Revoke all permissions and clear NAVI session</button>
   <pre id="result" role="status" aria-live="polite"></pre>

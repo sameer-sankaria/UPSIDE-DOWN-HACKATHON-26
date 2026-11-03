@@ -2,14 +2,17 @@ import type { InternalCommand } from "./messaging/internal";
 import type { Pattern } from "@navi-os/shared";
 import type { Pending } from "./session/state";
 interface View {
+  assistant?: { token: string; expiresAt: number; allowManage: boolean; paired: boolean } | null;
   tabs: { id: number; title: string; url: string; contentAllowed: boolean; expiresAt: number }[];
-  backendAllowed: boolean; openTabsAllowed: boolean;
+  remoteAIAllowed?: boolean; backendAllowed: boolean; openTabsAllowed: boolean;
   ghost: { mode: string; patterns: Pattern[] }; pending: Pending[]; analysis?: unknown;
 }
 const element = (id: string) => document.getElementById(id)!;
 const status = element("result");
 let busy = false;
 function render(view: View) {
+  (element("assistant-token") as HTMLInputElement).value = view.assistant?.token ?? "";
+  element("assistant-state").textContent = view.assistant ? `Dashboard ${view.assistant.paired ? "paired" : "awaiting pairing"}. Expires ${new Date(view.assistant.expiresAt).toLocaleTimeString()}.` : "Dashboard access disabled.";
   const selected = new Set(Array.from(document.querySelectorAll<HTMLInputElement>('input[name="tab"]:checked')).map(i => Number(i.value)));
   element("tabs").replaceChildren();
   for (const tab of view.tabs) {
@@ -25,6 +28,7 @@ function render(view: View) {
     }
     element("tabs").append(p);
   }
+  (element("ai-consent") as HTMLInputElement).checked = view.remoteAIAllowed ?? false;
   element("connection").textContent = `Backend consent: ${view.backendAllowed ? "connected" : "not connected"}`;
   element("ghost-state").textContent = `Ghost Mode: ${view.ghost.mode}; ${view.ghost.patterns.length} aggregate pattern(s).`;
   (element("open-permission") as HTMLInputElement).checked = view.openTabsAllowed;
@@ -83,3 +87,20 @@ element("connect").onclick = () => {
   }).catch(() => { status.textContent = "Backend permission request failed."; });
 };
 void run({ type: "STATE" });
+
+element("assistant-pair").onclick = () => {
+  const allowManage = (element("assistant-manage") as HTMLInputElement).checked;
+  const verifyTabs = (element("assistant-verify") as HTMLInputElement).checked;
+  const permissions: ("tabGroups" | "tabs")[] = [];
+  if (allowManage) permissions.push("tabGroups");
+  if (verifyTabs) permissions.push("tabs");
+  if (permissions.length) {
+    void chrome.permissions.request({ permissions }).then(granted => {
+      if (granted) return run({ type: "ASSISTANT_PAIR", allowManage });
+      status.textContent = "Optional permission declined. Pair without these capabilities if desired.";
+    }).catch(() => { status.textContent = "Permission request failed."; });
+  } else void run({ type: "ASSISTANT_PAIR", allowManage });
+};
+element("assistant-revoke").onclick = () => { void run({ type: "ASSISTANT_REVOKE" }); };
+
+(element("ai-consent") as HTMLInputElement).onchange = event => { void run({ type: "SET_AI_CONSENT", enabled: (event.target as HTMLInputElement).checked }); };

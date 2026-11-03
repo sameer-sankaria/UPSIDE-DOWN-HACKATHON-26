@@ -32,8 +32,8 @@ function harness() {
     },
   };
   const store = { load: async () => structuredClone(stored), save: async (state: any) => { stored = structuredClone(state); } };
-  const post: typeof postBackend = async (path, body, schema) => {
-    calls.network.push({ path, body: structuredClone(body) });
+  const post: typeof postBackend = async (path, body, schema, aiConsent) => {
+    calls.network.push({ path, body: structuredClone(body), aiConsent });
     if (path === "/api/browser-context") return schema.parse(analyzeContext(contextRequestSchema.parse(body).tabs));
     if (path === "/api/contextflow") return schema.parse(recommendContext(contextRequestSchema.parse(body).tabs));
     return schema.parse(suggestGhost(ghostRequestSchema.parse(body)));
@@ -219,4 +219,44 @@ test("backend client checks optional host permission and fixed paths, sends no c
     await h.controller.dispatch({ type: "CLEAR_SESSION" });
     await assert.rejects(postBackend("/api/contextflow", {}, recommendationsSchema), /Connect/);
   } finally { globalThis.fetch = originalFetch; h.cleanup(); }
+});
+
+
+test("dashboard context capture reuses separate content permission and never extracts during metadata reads", async () => {
+  const h = harness(); try {
+    await h.controller.dispatch({ type: "CONNECT_BACKEND" }); await enroll(h, 1);
+    const tabs = await h.controller.captureAssistant([]);
+    assert.equal(tabs.length, 1); assert.equal(tabs[0]!.text, ""); assert.equal(h.calls.scripts.length, 0);
+    await assert.rejects(() => h.controller.captureAssistant([1]), /content permission/);
+    await h.controller.dispatch({ type: "AUTHORIZE_CONTENT" });
+    const content = await h.controller.captureAssistant([1]);
+    assert.match(content[0]!.text, /React hooks/); assert.doesNotMatch(JSON.stringify(content), /alice@example.com|token=never-send/);
+    assert.equal(h.calls.network.length, 0);
+    assert.doesNotMatch(JSON.stringify(h.state()), /React hooks/);
+  } finally { h.cleanup(); }
+});
+
+test("ContextFlow remote AI transfer defaults off and changes only with explicit consent", async () => {
+  const h = harness(); try {
+    await h.controller.dispatch({ type: "CONNECT_BACKEND" }); await enroll(h, 1, true);
+    await h.controller.dispatch({ type: "ANALYZE", tabIds: [1] });
+    assert.equal(h.calls.network.find(c => c.path === "/api/contextflow").aiConsent, false);
+    await h.controller.dispatch({ type: "SET_AI_CONSENT", enabled: true });
+    h.calls.network.length = 0; await h.controller.dispatch({ type: "ANALYZE", tabIds: [1] });
+    assert.equal(h.calls.network.find(c => c.path === "/api/contextflow").aiConsent, true);
+  } finally { h.cleanup(); }
+});
+
+test("pairing is popup-issued, random, bounded, and revocable with pending context invalidated on reload", async () => {
+  const h = harness(); try {
+    await assert.rejects(() => h.controller.dispatch({ type: "ASSISTANT_PAIR", allowManage: false }), /Connect/);
+    await h.controller.dispatch({ type: "CONNECT_BACKEND" }); await enroll(h, 1);
+    await h.controller.dispatch({ type: "ASSISTANT_PAIR", allowManage: false });
+    const first = h.state().assistant!.token; assert.match(first, /^[a-f0-9]{64}$/);
+    h.state().assistant!.capture = { id: "capture", snapshots: {}, expiresAt: 9999999999999 };
+    await h.controller.updated(1, { status: "loading" }, h.tabs.get(1));
+    assert.equal(h.state().assistant!.capture, undefined);
+    await h.controller.dispatch({ type: "ASSISTANT_PAIR", allowManage: false }); assert.notEqual(h.state().assistant!.token, first);
+    await h.controller.dispatch({ type: "ASSISTANT_REVOKE" }); assert.equal(h.state().assistant, undefined);
+  } finally { h.cleanup(); }
 });

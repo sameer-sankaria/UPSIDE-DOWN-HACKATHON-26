@@ -3,7 +3,7 @@ import { apiJson } from "./response";
 import { isAllowedApiClient } from "../modules/permissions/api-access";
 const MAX_BYTES = 32768;
 class HttpError extends Error { constructor(public status: number, public code: string) { super(code); } }
-export function validatedPost<I, O>(input: Schema<I>, output: Schema<O>, service: (value: I) => O) {
+export function validatedPost<I, O>(input: Schema<I>, output: Schema<O>, service: (value: I, signal?: AbortSignal) => O | Promise<O>) {
   return async function POST(request: Request): Promise<Response> {
     try {
       if (!isAllowedApiClient(request)) throw new HttpError(403, "FORBIDDEN");
@@ -28,7 +28,7 @@ export function validatedPost<I, O>(input: Schema<I>, output: Schema<O>, service
       let parsed: I;
       try { parsed = input.parse(body); }
       catch (error) { if (error instanceof ValidationError) throw new HttpError(400, "INVALID_REQUEST"); throw error; }
-      return apiJson(output.parse(service(parsed)));
+      return apiJson(output.parse(await service(parsed, request.signal)));
     } catch (error) {
       if (error instanceof HttpError) return apiJson({ error: { code: error.code } }, error.status);
       // No request bodies, text, titles, or raw URLs are logged or persisted.

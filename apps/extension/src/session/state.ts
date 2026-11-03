@@ -1,4 +1,4 @@
-import { isRecord, type BrowserTab, type Pattern, type Recommendation } from "@navi-os/shared";
+import { isRecord, type BrowserTab, type Pattern, type Recommendation, type AssistantGrant } from "@navi-os/shared";
 export const SESSION_TTL = 30 * 60 * 1000;
 export interface AuthorizedTab extends BrowserTab {
   origin: string;
@@ -12,7 +12,9 @@ export interface Pending {
 }
 export interface SessionState {
   version: 2;
+  assistant?: AssistantGrant;
   tabs: Record<string, AuthorizedTab>;
+  remoteAIAllowed?: boolean;
   backendAllowed: boolean;
   openTabsAllowed: boolean;
   ghost: {
